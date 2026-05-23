@@ -44,31 +44,31 @@ Atharv will push the code to GitHub and add everyone as collaborators. You will 
 
 ```bash
 # Everyone runs this
-git clone https://github.com/yellowsense/yellowsense-uidai.git
-cd yellowsense-uidai
+git clone https://github.com/ish1416/UIDAI.git
+cd UIDAI
 ```
 
 The folder structure you will see:
 ```
-yellowsense-uidai/
-├── uidai_app/          ← Flutter app (Atharv + Ishita work here)
-│   ├── lib/
-│   │   ├── screens/    ← all app screens
-│   │   ├── widgets/    ← camera widget
-│   │   ├── services/   ← API calls to backend
-│   │   └── theme/      ← colors, fonts
-│   ├── android/
-│   └── pubspec.yaml
-├── backend/            ← Flask server (Ashish + Vignesh + Nandhini work here)
-│   ├── app.py          ← THE main file — all backend code lives here
-│   ├── qctool/         ← Streamlit desktop tool (Ashish + Vignesh)
-│   ├── start.sh        ← Mac/Linux: run this to start server
+UIDAI/                      ← repo root (Flutter app is HERE, not in a subfolder)
+├── lib/                    ← Flutter source (Atharv + Ishita work here)
+│   ├── screens/            ← all app screens
+│   ├── widgets/            ← camera widget
+│   ├── services/           ← API calls to backend
+│   └── theme/              ← colors, fonts
+├── android/
+├── pubspec.yaml
+├── backend/                ← Flask server (Ashish + Vignesh + Nandhini work here)
+│   ├── app.py              ← THE main file — all backend code lives here
+│   ├── qctool/             ← Streamlit desktop tool (Ashish + Vignesh)
+│   ├── start.sh            ← Mac/Linux: run this to start server
 │   ├── requirements.txt
-│   └── [model files]   ← .pt .pth .h5 .tflite — NOT in git, get separately
+│   └── [model files]       ← .pt .pth .h5 .tflite — NOT in git, get separately
 ├── .github/
 │   └── workflows/
-│       └── ci.yml      ← auto build check on every PR
-└── TEAM_STRATEGY.md
+│       └── ci.yml          ← auto build check on every PR
+├── TEAM_STRATEGY.md
+└── TEAM_ONBOARDING.md
 ```
 
 ---
@@ -108,7 +108,7 @@ backend/
 
 #### Mac:
 ```bash
-cd yellowsense-uidai/backend
+cd UIDAI/backend
 
 # Create isolated Python environment
 python3.11 -m venv venv
@@ -189,7 +189,7 @@ Should return JSON with `"status": "ok"`.
 flutter doctor
 # Fix any issues it shows before continuing
 
-cd yellowsense-uidai/uidai_app
+cd UIDAI
 
 # Install Flutter packages
 flutter pub get
@@ -278,7 +278,7 @@ git push origin feature/your-name-task
 
 #### When your task is done — raise a Pull Request:
 
-1. Go to `github.com/yellowsense/yellowsense-uidai`
+1. Go to `github.com/ish1416/UIDAI`
 2. Click **"Compare & pull request"** (appears after you push)
 3. Set base branch to `develop` (NOT main)
 4. Write a description of what you built
@@ -500,7 +500,7 @@ streamlit run app.py
 
 ### 👤 Ishita
 
-**You work in:** `uidai_app/lib/` only  
+**You work in:** `lib/` only  
 **Your branch:** `feature/ishita-ui`  
 **You do NOT touch:** `backend/` files
 
@@ -564,38 +564,33 @@ After Nandhini finishes `/liveness_gesture`, create `lib/screens/gesture_livenes
 
 ### 👤 Atharv
 
-**You work in:** `uidai_app/lib/widgets/` + `uidai_app/lib/` + GitHub  
+**You work in:** `lib/widgets/` + `lib/` + GitHub  
 **Your branch:** `feature/atharv-autocapture`
 
 #### Task 1 — GitHub Setup (do this first, Day 1)
 
+The repo is already pushed at `https://github.com/ish1416/UIDAI`. You need to:
+
 ```bash
-cd yellowsense-uidai
+# Clone it locally
+git clone https://github.com/ish1416/UIDAI.git
+cd UIDAI
 
-# Initialize git
-git init
-git add .
-git commit -m "feat: initial project — Flutter app + Flask backend"
-
-# Create repo on GitHub (yellowsense org or your personal account)
-# Then:
-git remote add origin https://github.com/yellowsense/yellowsense-uidai.git
-git branch -M main
-git push -u origin main
-
-# Create develop branch
-git checkout -b develop
-git push origin develop
-
-# Add collaborators on GitHub:
-# Settings → Collaborators → Add: Ishita, Ashish, Vignesh, Nandhini
-
-# Protect main branch:
-# Settings → Branches → Add rule → main
-# ✅ Require pull request before merging
-# ✅ Require status checks (select Flutter CI)
-# ✅ Require 1 approval
+# Both branches already exist: main + develop
+git fetch --all
+git checkout develop
 ```
+
+Then on GitHub:
+- **Settings → Collaborators** → Add: Ishita, Ashish, Vignesh, Nandhini
+- **Settings → Branches → Add branch protection rule**:
+  - Branch name: `main`
+  - ✅ Require a pull request before merging
+  - ✅ Require status checks to pass (select `Flutter CI`)
+  - ✅ Require at least 1 approval
+  - ✅ Do not allow bypassing the above settings
+
+> **Note on branch protection:** Free GitHub accounts can only protect branches on public repos. If the repo is private, either make it public or upgrade to GitHub Team.
 
 #### Task 2 — Auto-capture in `fingerprint_camera_widget.dart`
 
@@ -671,7 +666,7 @@ curl http://localhost:5001/health
 
 Before raising a PR, always run:
 ```bash
-cd uidai_app
+# From repo root
 flutter analyze          # must show 0 errors
 flutter build apk --debug  # must succeed
 ```

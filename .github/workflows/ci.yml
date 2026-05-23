@@ -14,6 +14,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -22,19 +28,16 @@ jobs:
 
       - name: Get dependencies
         run: flutter pub get
-        working-directory: uidai_app
 
       - name: Analyze code
         run: flutter analyze --no-fatal-infos
-        working-directory: uidai_app
 
       - name: Build debug APK
         run: flutter build apk --debug
-        working-directory: uidai_app
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk-${{ github.sha }}
-          path: uidai_app/build/app/outputs/flutter-apk/app-debug.apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 7

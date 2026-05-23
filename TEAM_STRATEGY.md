@@ -27,7 +27,7 @@
 
 ## 1. What We Have Built
 
-### 1.1 Flutter Mobile App (`uidai_app/lib/`)
+### 1.1 Flutter Mobile App (`lib/`)
 
 | Screen | File | Status |
 |--------|------|--------|
