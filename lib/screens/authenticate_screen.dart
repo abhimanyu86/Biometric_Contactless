@@ -51,7 +51,7 @@ class _AuthenticateScreenState extends State<AuthenticateScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: YS.greenBg, borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: YS.green.withOpacity(0.3))),
+                border: Border.all(color: YS.green.withValues(alpha: 0.3))),
             child: Row(children: [
               const Icon(Icons.info_outline_rounded, color: YS.green, size: 16),
               const SizedBox(width: 8),
@@ -104,7 +104,7 @@ class _AuthenticateScreenState extends State<AuthenticateScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3))),
+          border: Border.all(color: color.withValues(alpha: 0.3))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(ok ? Icons.verified_rounded : Icons.cancel_rounded, color: color, size: 24),

@@ -57,7 +57,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: YS.blueBg, borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: YS.blue.withOpacity(0.3))),
+                border: Border.all(color: YS.blue.withValues(alpha: 0.3))),
             child: Row(children: [
               const Icon(Icons.info_outline_rounded, color: YS.blue, size: 16),
               const SizedBox(width: 8),
@@ -99,7 +99,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3))),
+          border: Border.all(color: color.withValues(alpha: 0.3))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(ok ? Icons.verified_rounded : Icons.cancel_rounded, color: color, size: 24),
@@ -188,7 +188,7 @@ class _QcScreenState extends State<QcScreen> {
     if (r['success'] != true) {
       return Container(padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: YS.redBg, borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: YS.red.withOpacity(0.3))),
+            border: Border.all(color: YS.red.withValues(alpha: 0.3))),
         child: Text('Error: ${r['error']}', style: YS.label(13, color: YS.red)));
     }
     final qc       = r['quality']  as Map<String, dynamic>? ?? {};
@@ -281,7 +281,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ? Center(child: Text('No records yet', style: YS.label(14, color: YS.inkLight)))
                 : ListView.separated(
                     itemCount: _history.length,
-                    separatorBuilder: (_, __) => Divider(color: YS.stroke, height: 1),
+                    separatorBuilder: (_, s) => Divider(color: YS.stroke, height: 1),
                     itemBuilder: (_, i) {
                       final h = _history[i] as Map<String, dynamic>;
                       final conf = ((h['confidence'] ?? 0) * 100).toStringAsFixed(1);
@@ -406,7 +406,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.3))),
+          border: Border.all(color: color.withValues(alpha: 0.3))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(ok ? Icons.check_circle_rounded : Icons.error_rounded, color: color, size: 18),

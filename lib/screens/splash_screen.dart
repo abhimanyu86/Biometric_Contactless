@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -40,7 +39,6 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.of(context).size.width;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -54,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen>
         child: SafeArea(
           child: AnimatedBuilder(
             animation: _ctrl,
-            builder: (_, __) => Column(
+            builder: (_, s) => Column(
               children: [
                 const Spacer(flex: 3),
                 // Logo
@@ -90,7 +88,7 @@ class _SplashScreenState extends State<SplashScreen>
                       decoration: BoxDecoration(
                         color: YS.amberSoft,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: YS.amber.withOpacity(0.3)),
+                        border: Border.all(color: YS.amber.withValues(alpha: 0.3)),
                       ),
                       child: Text('SITAA Cohort 1 · 2025',
                           style: YS.label(11, color: YS.amberDeep, w: FontWeight.w600)),

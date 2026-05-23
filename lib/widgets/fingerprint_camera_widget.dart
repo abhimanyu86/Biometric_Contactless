@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 
 class FingerprintCameraWidget extends StatefulWidget {
@@ -185,7 +184,7 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
                     onTap: _startCamera,
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                       Container(width: 64, height: 64,
-                        decoration: BoxDecoration(color: YS.amber.withOpacity(0.15),
+                        decoration: BoxDecoration(color: YS.amber.withValues(alpha: 0.15),
                             shape: BoxShape.circle),
                         child: const Icon(Icons.fingerprint, size: 36, color: YS.amber)),
                       const SizedBox(height: 12),
@@ -196,7 +195,7 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
         CustomPaint(painter: _OverlayPainter(YS.amber)),
         if (_live) AnimatedBuilder(
           animation: _scanAnim,
-          builder: (_, __) => Positioned(
+          builder: (_, s) => Positioned(
             top: _scanAnim.value * (MediaQuery.of(context).size.width * 4/3 * 0.6),
             left: MediaQuery.of(context).size.width * 0.18,
             right: MediaQuery.of(context).size.width * 0.18,
@@ -211,7 +210,7 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
             shape: BoxShape.circle,
             border: Border.all(color: YS.amber, width: 2))),
         ),
-        if (_flashing) Container(color: Colors.white.withOpacity(0.8)),
+        if (_flashing) Container(color: Colors.white.withValues(alpha: 0.8)),
         Positioned(bottom: 14, left: 0, right: 0,
           child: Text(
             _captured != null ? '✓  Image captured' : 'Place finger inside the oval',
@@ -284,7 +283,7 @@ class _OverlayPainter extends CustomPainter {
     canvas.drawPath(
       Path()..addRect(Rect.fromLTWH(0,0,size.width,size.height))..addOval(oval)
         ..fillType = PathFillType.evenOdd,
-      Paint()..color = const Color(0xFF050505).withOpacity(0.65),
+      Paint()..color = const Color(0xFF050505).withValues(alpha: 0.65),
     );
     canvas.drawOval(oval, Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 1.5
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));

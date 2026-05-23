@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/fingerprint_camera_widget.dart';
 import '../services/api_service.dart';
@@ -62,7 +61,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
             decoration: BoxDecoration(
               color: YS.amberSoft,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: YS.amber.withOpacity(0.3)),
+              border: Border.all(color: YS.amber.withValues(alpha: 0.3)),
             ),
             child: Row(children: [
               const Icon(Icons.info_outline_rounded, color: YS.amberDeep, size: 18),
@@ -147,7 +146,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
       decoration: BoxDecoration(
         color: passed ? YS.greenBg : YS.redBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: passed ? YS.green.withOpacity(0.3) : YS.red.withOpacity(0.3)),
+        border: Border.all(color: passed ? YS.green.withValues(alpha: 0.3) : YS.red.withValues(alpha: 0.3)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -196,7 +195,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
       decoration: BoxDecoration(
         color: live ? YS.greenBg : YS.redBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: live ? YS.green.withOpacity(0.3) : YS.red.withOpacity(0.3)),
+        border: Border.all(color: live ? YS.green.withValues(alpha: 0.3) : YS.red.withValues(alpha: 0.3)),
       ),
       child: Row(children: [
         Icon(live ? Icons.verified_rounded : Icons.dangerous_rounded,
@@ -353,7 +352,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: YS.redBg, borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: YS.red.withOpacity(0.3)),
+      border: Border.all(color: YS.red.withValues(alpha: 0.3)),
     ),
     child: Row(children: [
       const Icon(Icons.error_outline_rounded, color: YS.red, size: 18),

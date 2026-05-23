@@ -8,12 +8,12 @@ import 'screens/screens.dart';
 final appRouter = GoRouter(
   initialLocation: '/',
   routes: [
-    GoRoute(path: '/',             builder: (_, __) => const HomeScreen()),
-    GoRoute(path: '/enroll',       builder: (_, __) => const EnrollScreen()),
-    GoRoute(path: '/authenticate', builder: (_, __) => const AuthenticateScreen()),
-    GoRoute(path: '/verify',       builder: (_, __) => const VerifyScreen()),
-    GoRoute(path: '/pipeline',     builder: (_, __) => const PipelineScreen()),
-    GoRoute(path: '/history',      builder: (_, __) => const HistoryScreen()),
-    GoRoute(path: '/settings',     builder: (_, __) => const SettingsScreen()),
+    GoRoute(path: '/',             builder: (context, state) => const HomeScreen()),
+    GoRoute(path: '/enroll',       builder: (context, state) => const EnrollScreen()),
+    GoRoute(path: '/authenticate', builder: (context, state) => const AuthenticateScreen()),
+    GoRoute(path: '/verify',       builder: (context, state) => const VerifyScreen()),
+    GoRoute(path: '/pipeline',     builder: (context, state) => const PipelineScreen()),
+    GoRoute(path: '/history',      builder: (context, state) => const HistoryScreen()),
+    GoRoute(path: '/settings',     builder: (context, state) => const SettingsScreen()),
   ],
 );

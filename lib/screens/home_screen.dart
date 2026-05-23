@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -51,7 +50,7 @@ class HomeScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text('UIDAI · SITAA Cohort 1',
@@ -62,7 +61,7 @@ class HomeScreen extends StatelessWidget {
                     style: YS.display(28, color: Colors.white, w: FontWeight.w800)),
                 const SizedBox(height: 8),
                 Text('AI-powered biometric authentication\nfor Aadhaar — no scanner needed',
-                    style: YS.label(13, color: Colors.white.withOpacity(0.85))),
+                    style: YS.label(13, color: Colors.white.withValues(alpha: 0.85))),
                 const SizedBox(height: 20),
                 // Pipeline chips
                 Wrap(spacing: 8, runSpacing: 8, children: [
@@ -167,9 +166,9 @@ class HomeScreen extends StatelessWidget {
   Widget _chip(String label) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.2),
+      color: Colors.white.withValues(alpha: 0.2),
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.white.withOpacity(0.3)),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
     ),
     child: Text(label, style: YS.label(10, color: Colors.white, w: FontWeight.w600)),
   );

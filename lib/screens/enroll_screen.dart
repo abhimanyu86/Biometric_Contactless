@@ -97,7 +97,7 @@ class _EnrollScreenState extends State<EnrollScreen> {
   Widget _badge(String label, Color color, Color bg) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3))),
+        border: Border.all(color: color.withValues(alpha: 0.3))),
     child: Text(label, style: YS.label(10, color: color, w: FontWeight.w700)
         .copyWith(letterSpacing: 1.5)),
   );
@@ -112,7 +112,7 @@ class _EnrollScreenState extends State<EnrollScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.3))),
+          border: Border.all(color: color.withValues(alpha: 0.3))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(ok ? Icons.check_circle_rounded : Icons.error_rounded, color: color, size: 18),
