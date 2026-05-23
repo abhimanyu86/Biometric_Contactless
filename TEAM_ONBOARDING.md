@@ -1,7 +1,7 @@
 # YellowSense UIDAI — Team Onboarding & Work Guide
 
-> Read this fully before touching any code.  
-> This tells you exactly how to set up, where to work, and how to submit your work.
+> Read this **fully and in order** before touching any code.  
+> This tells you exactly how to set up, build the app, install it on your phone, and start working.
 
 ---
 
@@ -17,67 +17,109 @@
 
 ---
 
-## Part 1 — Setting Up Your Laptop
+## Part 1 — Install Required Tools
 
-### Step 1 — Install Required Tools
+### Everyone needs
 
-#### Everyone needs:
-- **Git** — https://git-scm.com/downloads
-- **VS Code** — https://code.visualstudio.com (recommended editor)
-
-#### Atharv + Ishita also need (Flutter):
-- **Flutter SDK 3.41.4** — https://docs.flutter.dev/get-started/install
-- **Android Studio** — https://developer.android.com/studio
-  - Inside Android Studio → SDK Manager → install Android SDK 34
-  - Install an emulator: AVD Manager → Create Virtual Device → Pixel 6 → API 34
-
-#### Ashish + Vignesh + Nandhini also need (Python backend):
-- **Python 3.11** — https://www.python.org/downloads/release/python-3110/
-  - Windows: check "Add Python to PATH" during install
-  - Mac: `brew install python@3.11`
+| Tool | Download |
+|------|----------|
+| **Git** | https://git-scm.com/downloads |
+| **VS Code** | https://code.visualstudio.com |
 
 ---
 
-### Step 2 — Clone the Repository
+### Atharv + Ishita also need (Flutter)
 
-Atharv will push the code to GitHub and add everyone as collaborators. You will get an email invite — accept it, then:
+#### 1. Install Flutter SDK 3.41.4
+
+**Mac:**
+```bash
+# Download Flutter
+cd ~/development
+curl -O https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_arm64_3.41.4-stable.zip
+unzip flutter_macos_arm64_3.41.4-stable.zip
+
+# Add to PATH — add this line to ~/.zshrc
+export PATH="$PATH:$HOME/development/flutter/bin"
+
+# Reload terminal
+source ~/.zshrc
+
+# Verify
+flutter --version
+```
+
+**Windows:**
+1. Download Flutter ZIP from https://docs.flutter.dev/get-started/install/windows
+2. Extract to `C:\flutter`
+3. Open **System Properties → Environment Variables → Path → Edit → New**
+4. Add `C:\flutter\bin`
+5. Open a new terminal and run `flutter --version`
+
+#### 2. Install Android Studio
+- Download from https://developer.android.com/studio
+- Open Android Studio → **SDK Manager** → install **Android SDK 34**
+- Open **Device Manager → Create Virtual Device → Pixel 6 → API 34 → Finish**
+
+#### 3. Verify Flutter sees everything
+```bash
+flutter doctor
+```
+Fix any issues it shows. You need at minimum:
+- ✅ Flutter
+- ✅ Android toolchain
+- ✅ Android Studio
+
+---
+
+### Ashish + Vignesh + Nandhini also need (Python)
+
+**Mac:**
+```bash
+brew install python@3.11
+python3.11 --version   # should print Python 3.11.x
+```
+
+**Windows:**
+1. Download Python 3.11 from https://www.python.org/downloads/release/python-3110/
+2. During install — **check "Add Python to PATH"**
+3. Open a new terminal and run `python --version`
+
+---
+
+## Part 2 — Clone the Repo & Get Model Files
+
+### Step 1 — Clone
 
 ```bash
-# Everyone runs this
 git clone https://github.com/ish1416/UIDAI.git
 cd UIDAI
 ```
 
-The folder structure you will see:
+You will see this structure:
 ```
-UIDAI/                      ← repo root (Flutter app is HERE, not in a subfolder)
-├── lib/                    ← Flutter source (Atharv + Ishita work here)
-│   ├── screens/            ← all app screens
-│   ├── widgets/            ← camera widget
-│   ├── services/           ← API calls to backend
-│   └── theme/              ← colors, fonts
+UIDAI/
+├── lib/                ← Flutter app source (Atharv + Ishita)
 ├── android/
 ├── pubspec.yaml
-├── backend/                ← Flask server (Ashish + Vignesh + Nandhini work here)
-│   ├── app.py              ← THE main file — all backend code lives here
-│   ├── qctool/             ← Streamlit desktop tool (Ashish + Vignesh)
-│   ├── start.sh            ← Mac/Linux: run this to start server
+├── backend/            ← Flask server (Ashish + Vignesh + Nandhini)
+│   ├── app.py
 │   ├── requirements.txt
-│   └── [model files]       ← .pt .pth .h5 .tflite — NOT in git, get separately
+│   ├── start.sh
+│   └── qctool/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml          ← auto build check on every PR
+│       └── ci.yml
 ├── TEAM_STRATEGY.md
-└── TEAM_ONBOARDING.md
+└── TEAM_ONBOARDING.md  ← this file
 ```
 
 ---
 
-### Step 3 — Get the Model Files
+### Step 2 — Get the Model Files
 
-The AI model files are too large for Git. Atharv will share them via Google Drive or WhatsApp.
-
-Download all of these and put them inside `backend/`:
+Model files are too large for Git. **Atharv will share them via Google Drive.**  
+Download all of them and place them inside the `backend/` folder.
 
 | File | Size |
 |------|------|
@@ -88,407 +130,478 @@ Download all of these and put them inside `backend/`:
 | `zero_dce_model.h5` | 966 KB |
 | `bright_spot_detection.pt` | 21 MB |
 
-After downloading, your `backend/` folder should look like:
+After placing them, your `backend/` folder should look like:
 ```
 backend/
 ├── app.py
+├── requirements.txt
+├── start.sh
 ├── best-new.pt
 ├── best_f1.pth
 ├── liveness_model_v3.pt
 ├── u2net_320x320_float32.tflite
 ├── zero_dce_model.h5
-├── bright_spot_detection.pt
-├── requirements.txt
-└── start.sh
+└── bright_spot_detection.pt
 ```
 
 ---
 
-### Step 4 — Backend Setup (Ashish · Vignesh · Nandhini)
+## Part 3 — Backend Setup & Running (Everyone does this)
 
-#### Mac:
-```bash
-cd UIDAI/backend
+Everyone on the team needs the backend running to test the app — even Atharv and Ishita.
 
-# Create isolated Python environment
-python3.11 -m venv venv
-
-# Activate it (you must do this every time you open a new terminal)
-source venv/bin/activate
-
-# Install all dependencies
-pip install -r requirements.txt
-
-# For Mac Apple Silicon (M1/M2/M3) — replace tensorflow line with:
-pip install tensorflow-macos==2.16.2 tensorflow-metal==1.2.0
-```
-
-#### Windows:
-```powershell
-cd yellowsense-uidai\backend
-
-# Create isolated Python environment
-python -m venv venv
-
-# Activate it (you must do this every time you open a new terminal)
-venv\Scripts\activate
-
-# Install all dependencies
-pip install -r requirements.txt
-
-# If tensorflow fails on Windows, run:
-pip install tensorflow-cpu
-```
-
-#### Verify everything installed correctly:
-```bash
-python -c "import flask, torch, cv2, ultralytics, tensorflow; print('ALL OK')"
-```
-You should see `ALL OK`. If any module fails, run `pip install <module-name>` again.
-
----
-
-#### Starting the Backend Server:
+### Step 1 — Create Python virtual environment
 
 **Mac/Linux:**
 ```bash
-cd backend
+cd UIDAI/backend
+python3.11 -m venv venv
+source venv/bin/activate
+```
+
+**Windows:**
+```powershell
+cd UIDAI\backend
+python -m venv venv
+venv\Scripts\activate
+```
+
+> ⚠️ You must run the activate command **every time** you open a new terminal before working on the backend.
+
+---
+
+### Step 2 — Install dependencies
+
+**Mac (Apple Silicon — M1/M2/M3):**
+```bash
+pip install -r requirements.txt
+pip install tensorflow-macos==2.16.2 tensorflow-metal==1.2.0
+```
+
+**Mac (Intel) / Windows / Linux:**
+```bash
+pip install -r requirements.txt
+```
+
+> If tensorflow fails on Windows, run: `pip install tensorflow-cpu`
+
+---
+
+### Step 3 — Verify installation
+
+```bash
+python -c "import flask, torch, cv2, ultralytics, tensorflow; print('ALL OK')"
+```
+
+You should see `ALL OK`. If any module fails, run `pip install <that-module>` again.
+
+---
+
+### Step 4 — Start the backend server
+
+**Mac/Linux:**
+```bash
+cd UIDAI/backend
 source venv/bin/activate
 bash start.sh
 ```
 
 **Windows:**
 ```powershell
-cd backend
+cd UIDAI\backend
 venv\Scripts\activate
 python app.py
 ```
 
-You should see:
+You should see this output — wait for all models to load:
 ```
 ✓ U2Net loaded
 ✓ Zero-DCE loaded
 ✓ MinutiaeNet loaded
-✓ Liveness loaded
+✓ Liveness loaded (threshold=0.3)
 ✓ Bright-spot detector loaded
 * Running on http://0.0.0.0:5001
 ```
 
-**Test it's working:**
+---
+
+### Step 5 — Test the server is working
+
+Open a **new terminal** (keep the server running in the first one) and run:
+
 ```bash
 curl http://localhost:5001/health
 ```
-Should return JSON with `"status": "ok"`.
 
----
-
-### Step 5 — Flutter Setup (Atharv · Ishita)
-
-```bash
-# Check Flutter is installed correctly
-flutter doctor
-# Fix any issues it shows before continuing
-
-cd UIDAI
-
-# Install Flutter packages
-flutter pub get
-
-# Run on connected device or emulator
-flutter run
+You should see:
+```json
+{
+  "status": "ok",
+  "liveness_available": true,
+  "minutiae_available": true,
+  "brightspot_available": true
+}
 ```
 
-**If you see "No devices found":**
-- Connect your Android phone via USB
-- Enable Developer Options on phone → enable USB Debugging
-- Or start an emulator in Android Studio first
-
-**Setting the server URL in the app:**
-- Open the app → tap Settings
-- Set URL to `http://<your-laptop-IP>:5001`
-- Find your IP: Mac → `ipconfig getifaddr en0` | Windows → `ipconfig`
-- Your phone and laptop must be on the same WiFi
+If you see this — your backend is fully working. ✅
 
 ---
 
-## Part 2 — Git Workflow (How to Actually Work)
+### Step 6 — Find your laptop's IP address
 
-This is the most important section. Follow this exactly.
+You need this to connect the phone app to your backend.
+
+**Mac:**
+```bash
+ipconfig getifaddr en0
+```
+
+**Windows:**
+```powershell
+ipconfig
+```
+Look for **IPv4 Address** under your WiFi adapter. It will look like `192.168.x.x`.
+
+> Write this IP down — you will need it in Part 5.
+
+---
+
+## Part 4 — Build & Install the App on Your Phone
+
+### Who does this
+
+**Everyone** should install the app on their phone so they can test their work.
+
+---
+
+### Step 1 — Install Flutter dependencies
+
+```bash
+cd UIDAI
+flutter pub get
+```
+
+---
+
+### Step 2 — Build the APK
+
+```bash
+flutter build apk --debug
+```
+
+This takes 2–5 minutes the first time. You will see:
+```
+Running Gradle task 'assembleDebug'...
+✓ Built build/app/outputs/flutter-apk/app-debug.apk
+```
+
+---
+
+### Step 3 — Find the APK file
+
+The APK is at:
+```
+UIDAI/build/app/outputs/flutter-apk/app-debug.apk
+```
+
+**On Mac — open the folder in Finder:**
+```bash
+open build/app/outputs/flutter-apk/
+```
+
+**On Windows — open in Explorer:**
+```powershell
+explorer build\app\outputs\flutter-apk\
+```
+
+You will see `app-debug.apk` in that folder.
+
+---
+
+### Step 4 — Transfer APK to your phone
+
+**Option A — USB cable (fastest):**
+1. Connect phone to laptop via USB
+2. On phone — tap the notification "Charging via USB" → select **File Transfer**
+3. On Mac: use Android File Transfer app (https://www.android.com/filetransfer/)
+4. On Windows: open File Explorer → your phone appears as a drive
+5. Copy `app-debug.apk` to your phone's Downloads folder
+
+**Option B — WhatsApp/Telegram (easiest):**
+1. Send `app-debug.apk` to yourself on WhatsApp or Telegram
+2. Open it on your phone and download
+
+**Option C — Google Drive:**
+1. Upload `app-debug.apk` to Google Drive
+2. Open Google Drive on your phone and download it
+
+---
+
+### Step 5 — Install the APK on your phone
+
+1. On your phone, open **Files** app → go to Downloads
+2. Tap `app-debug.apk`
+3. If you see **"Install blocked"** → go to Settings → Security → enable **"Install from unknown sources"** or **"Install unknown apps"** for your Files app
+4. Tap **Install**
+5. Tap **Open**
+
+You should see the YellowSense splash screen. ✅
+
+---
+
+## Part 5 — Connect the App to the Backend
+
+> Your phone and laptop **must be on the same WiFi network** for this to work.
+
+1. Make sure the backend server is running on your laptop (Part 3, Step 4)
+2. Open the app on your phone
+3. Tap **Settings** (gear icon on home screen)
+4. In the **Server URL** field, enter:
+   ```
+   http://192.168.x.x:5001
+   ```
+   Replace `192.168.x.x` with your laptop's actual IP from Part 3 Step 6
+5. Tap **Save URL**
+6. Tap **Check Health**
+
+You should see **"Server Online"** with green checkmark. ✅
+
+If you see "Unreachable":
+- Make sure phone and laptop are on the **same WiFi** (not one on mobile data)
+- Make sure the backend server is still running in your terminal
+- Double-check the IP address — run `ipconfig getifaddr en0` again on Mac
+
+---
+
+## Part 6 — Running the App During Development (Atharv + Ishita only)
+
+For Flutter development, instead of building an APK every time, you can run directly on a connected device with hot reload.
+
+### Option A — Physical phone with USB
+
+1. On your Android phone:
+   - Go to **Settings → About Phone**
+   - Tap **Build Number** 7 times until you see "You are now a developer"
+   - Go back to **Settings → Developer Options**
+   - Enable **USB Debugging**
+
+2. Connect phone to laptop via USB. On phone, tap **Allow** when asked to trust the computer.
+
+3. Run:
+```bash
+cd UIDAI
+flutter devices        # should show your phone
+flutter run            # builds and installs on phone
+```
+
+4. While the app is running:
+   - Press `r` in terminal → **hot reload** (instant UI update)
+   - Press `R` → **hot restart** (full restart)
+   - Press `q` → quit
+
+### Option B — Android Emulator
+
+1. Open Android Studio → **Device Manager** → Start the Pixel 6 emulator
+2. Run:
+```bash
+flutter run
+```
+Flutter will automatically detect the emulator.
+
+> For emulator, use `http://10.0.2.2:5001` as the server URL in Settings (not your laptop IP).
+
+---
+
+## Part 7 — Git Workflow (How to Actually Work)
 
 ### The Branch Rules
 
 ```
-main        ← NEVER commit here directly. Only Atharv merges here.
-develop     ← NEVER commit here directly. Merge your feature branch here via PR.
-feature/your-name-task  ← YOUR branch. This is where you work.
+main        ← NEVER commit here. Only Atharv merges here at end of sprint.
+develop     ← NEVER commit here. Merge your feature branch here via PR.
+feature/your-name-task  ← YOUR branch. This is where you work every day.
 ```
 
-### Your Daily Workflow
-
-#### Day 1 — Create your branch (do this once):
+### Day 1 — Create your branch (do this once)
 
 ```bash
-# Make sure you're up to date
 git checkout develop
 git pull origin develop
-
-# Create your branch
 git checkout -b feature/your-name-task
-
-# Examples:
-# git checkout -b feature/nandhini-readiness
-# git checkout -b feature/vignesh-roi
-# git checkout -b feature/ashish-iso
-# git checkout -b feature/ishita-ui
-# git checkout -b feature/atharv-autocapture
 ```
 
-#### Every day — before you start coding:
+Your branch names:
+- Atharv → `feature/atharv-autocapture`
+- Ishita → `feature/ishita-ui`
+- Ashish → `feature/ashish-iso-qctool`
+- Vignesh → `feature/vignesh-roi-benchmark`
+- Nandhini → `feature/nandhini-backend`
+
+---
+
+### Every day — before you start coding
 
 ```bash
-# Get latest changes from develop into your branch
 git checkout develop
 git pull origin develop
 git checkout feature/your-name-task
 git merge develop
-# Fix any conflicts if they appear, then continue
 ```
 
-#### While coding — save your work often:
+---
+
+### While coding — save your work often
 
 ```bash
-# See what you changed
-git status
-
-# Stage your changes
-git add backend/app.py
-# or add everything:
 git add .
-
-# Commit with a clear message
 git commit -m "feat: add /readiness endpoint with 0-100 score"
-# or
-git commit -m "feat: add /check_roi endpoint with guidance string"
-# or
-git commit -m "fix: blur threshold adjusted for fingerprint images"
-
-# Push to GitHub
 git push origin feature/your-name-task
 ```
 
-#### When your task is done — raise a Pull Request:
+---
+
+### When your task is done — raise a Pull Request
 
 1. Go to `github.com/ish1416/UIDAI`
-2. Click **"Compare & pull request"** (appears after you push)
-3. Set base branch to `develop` (NOT main)
-4. Write a description of what you built
+2. Click **"Compare & pull request"**
+3. Set base branch to `develop` ← important, NOT main
+4. Write what you built in the description
 5. Tag **Atharv** as reviewer
-6. Wait for CI to go green ✅
-7. Wait for Atharv to approve
-8. Then merge
+6. Wait for CI ✅ and Atharv's approval
+7. Merge
 
 ---
 
-### Commit Message Format
+### Commit message format
 
-Use this format so everyone understands what changed:
-
-```
-feat: short description     ← new feature
-fix: short description      ← bug fix
-refactor: short description ← code cleanup, no new feature
-test: short description     ← testing
-docs: short description     ← documentation only
-```
-
-Examples:
 ```
 feat: add /readiness endpoint returning 0-100 score
 feat: add /check_roi endpoint with move left/right guidance
-feat: add ISO 19794-4 template export function
-fix: liveness model threshold corrected to 0.3
-fix: blur check threshold lowered for fingerprint images
-feat: add contact fingerprint preprocessing with Gabor filters
+fix: blur threshold lowered for fingerprint images
+fix: server URL not saving on settings screen
 ```
 
 ---
 
-## Part 3 — Your Specific Tasks
+## Part 8 — Your Specific Tasks
 
 ---
 
-### 👤 Nandhini
+### 👤 Nandhini — Backend only
 
-**You work in:** `backend/app.py` only  
-**Your branch:** `feature/nandhini-backend`  
-**You do NOT touch:** Flutter files, Streamlit files
+**Branch:** `feature/nandhini-backend`  
+**Files:** `backend/app.py` only
 
 #### Task 1 — `/readiness` endpoint
 
-Open `backend/app.py`. Scroll to the bottom, just before `if __name__ == "__main__":`. Add your code there.
+Open `backend/app.py`. Add just before `if __name__ == "__main__":`:
 
-What you need to build:
 ```python
 @app.route("/readiness", methods=["POST"])
 def readiness():
-    # 1. Accept image file from request
-    # 2. Save it to uploads/
-    # 3. Run quality_gate() on it → gives blur, brightness, glare
-    # 4. Run detect_and_crop() → get cropped image
-    # 5. Run preprocess_fingerprint() → get preprocessed image
-    # 6. Run detect_minutiae() → get minutiae list
-    # 7. Normalize each metric to 0-1 range
-    # 8. Compute weighted score:
-    #    score = blur_norm*30 + brightness_norm*25 + glare_norm*20 + minutiae_norm*25
-    # 9. Return score + grade + breakdown
+    # 1. Accept image file, save to uploads/
+    # 2. Run quality_gate() → blur, brightness, glare
+    # 3. Run detect_and_crop() + preprocess_fingerprint() + detect_minutiae()
+    # 4. Normalize each metric 0-1
+    # 5. score = blur_norm*30 + brightness_norm*25 + glare_norm*20 + minutiae_norm*25
+    # 6. grade: 80-100=Excellent, 60-79=Good, 40-59=Marginal, 0-39=Rejected
+    # 7. Return score + grade + breakdown
 ```
 
-Grade thresholds:
-- 80–100 → "Excellent"
-- 60–79  → "Good"
-- 40–59  → "Marginal"
-- 0–39   → "Rejected"
-
-Test it with curl after writing:
+Test:
 ```bash
 curl -X POST http://localhost:5001/readiness \
-  -F "image=@/path/to/any/fingerprint.jpg"
+  -F "image=@uploads/any_fingerprint.jpg"
 ```
 
 #### Task 2 — `/liveness_gesture` endpoint
 
-Port the gesture detection from the IIT Bombay repo (`Gesture` branch → `gesture.py`).
-
-```python
-@app.route("/liveness_gesture", methods=["POST"])
-def liveness_gesture():
-    # 1. Accept image file + expected_count (form field, int 1-5)
-    # 2. Run MediaPipe hand detection on image
-    # 3. Count extended fingers
-    # 4. Compare to expected_count
-    # 5. Return detected_count, expected_count, passed (bool)
-```
-
-Install mediapipe first:
 ```bash
 pip install mediapipe
 ```
 
+```python
+@app.route("/liveness_gesture", methods=["POST"])
+def liveness_gesture():
+    # 1. Accept image + expected_count (1-5)
+    # 2. Run MediaPipe hand detection
+    # 3. Count extended fingers
+    # 4. Return detected_count, expected_count, passed (bool)
+```
+
 ---
 
-### 👤 Vignesh
+### 👤 Vignesh — Backend + Streamlit
 
-**You work in:** `backend/app.py` + `backend/qctool/app.py`  
-**Your branch:** `feature/vignesh-roi-benchmark`  
-**You do NOT touch:** Flutter files
+**Branch:** `feature/vignesh-roi-benchmark`  
+**Files:** `backend/app.py` + `backend/qctool/app.py`
 
-#### Task 1 — `/check_roi` endpoint in `backend/app.py`
+#### Task 1 — `/check_roi` endpoint
 
 ```python
 @app.route("/check_roi", methods=["POST"])
 def check_roi():
-    # 1. Accept image file
-    # 2. Run YOLO detection (same as detect_and_crop but don't crop)
-    # 3. Get bounding box center: bbox_cx = (x1+x2)/2, bbox_cy = (y1+y2)/2
-    # 4. Get image center: img_cx = width/2, img_cy = height/2
-    # 5. Compute offset: offset_x = bbox_cx - img_cx, offset_y = bbox_cy - img_cy
-    # 6. Decide guidance:
-    #    if abs(offset_x) < 30 and abs(offset_y) < 30 → "Good — finger centered"
-    #    elif offset_x < -30 → "Move right"
-    #    elif offset_x > 30  → "Move left"
-    #    elif offset_y < -30 → "Move down"
-    #    elif offset_y > 30  → "Move up"
-    # 7. Return in_roi, offset_x, offset_y, guidance
+    # 1. Accept image
+    # 2. Run YOLO → get bbox → compute center
+    # 3. Compare to image center
+    # 4. Return in_roi, offset_x, offset_y, guidance string
+    # guidance: "Move left/right/up/down" or "Good — finger centered"
 ```
 
-#### Task 2 — `backend/benchmark.py` (new file)
+#### Task 2 — `backend/benchmark.py`
 
-Create a new file `backend/benchmark.py`:
-```python
-# Load all users from uidai.db
-# For users with multiple enrollments → genuine pairs
-# Cross-user pairs → impostor pairs
-# Run match_templates() on all pairs
-# Compute FAR, FRR at thresholds 0.05 to 0.95 (step 0.05)
-# Find EER (where FAR ≈ FRR)
-# Save results to benchmark_results.csv
-# Plot FAR/FRR curve and save to eer_plot.png
-```
-
-Run it as a standalone script:
 ```bash
-cd backend
-source venv/bin/activate
+# New file — run standalone
 python benchmark.py
+# Outputs: benchmark_results.csv + eer_plot.png
 ```
 
-#### Task 3 — QC Desktop Tool Tab 2 + Tab 4
+#### Task 3 — QC Tool Tab 2 + Tab 4
 
-In `backend/qctool/app.py`, you own:
-- **Tab 2: Readiness Scoring** — upload image, call `/readiness`, show score + grade + breakdown bar chart
-- **Tab 4: Contact Upload** — upload contact image, call `/process_contact` (Ashish builds this), show preprocessed result
+In `backend/qctool/app.py`:
+- Tab 2: upload image → call `/readiness` → show score + bar chart
+- Tab 4: upload contact image → call `/process_contact` → show result
 
 ---
 
-### 👤 Ashish
+### 👤 Ashish — Backend + Streamlit
 
-**You work in:** `backend/app.py` + `backend/qctool/app.py`  
-**Your branch:** `feature/ashish-iso-qctool`  
-**You do NOT touch:** Flutter files
+**Branch:** `feature/ashish-iso-qctool`  
+**Files:** `backend/app.py` + `backend/qctool/app.py`
 
-#### Task 1 — Contact-based preprocessing in `backend/app.py`
+#### Task 1 — Contact preprocessing
 
-Port from `contactless_attendance/backend/app.py` → look for `preprocess_contact_fingerprint()`.
-
+Port `preprocess_contact_fingerprint()` from `contactless_attendance/backend/app.py`:
 ```python
 def preprocess_contact_fingerprint(image_bgr):
-    # 1. Convert to grayscale
-    # 2. Otsu threshold to remove gray background
-    # 3. CLAHE for local contrast enhancement
-    # 4. Multi-orientation Gabor filtering (8 orientations)
-    # 5. Resize to match contactless scale (256x256)
-    # Return: enhanced grayscale image
+    # Otsu → CLAHE → Gabor (8 orientations) → resize 256x256
 
 @app.route("/process_contact", methods=["POST"])
 def process_contact():
-    # Accept image, run preprocess_contact_fingerprint()
-    # Return preprocessed image as base64
+    # Accept image → preprocess → return base64
 ```
 
-#### Task 2 — ISO/IEC 19794-4 template export in `backend/app.py`
+#### Task 2 — ISO 19794-4 template export
 
 ```python
 def export_iso_template(minutiae, image_width, image_height):
-    # Build ISO 19794-4 binary record
-    # Header: format identifier (4 bytes) + version (4 bytes)
-    # Capture equipment: 2 bytes
-    # Image size: width (2 bytes) + height (2 bytes)
-    # Resolution: 2 bytes each
-    # Finger count: 1 byte
-    # For each minutiae point:
-    #   type (2 bits) + x (14 bits) + y (14 bits) + angle (8 bits) + quality (8 bits)
-    # Return bytes object
+    # Build ISO binary record
+    # Return bytes
 
 @app.route("/export_template", methods=["POST"])
 def export_template():
-    # Accept uid + batch
-    # Fetch template from DB
-    # Call export_iso_template()
-    # Return base64-encoded ISO binary
+    # Accept uid + batch → fetch from DB → export → return base64
 ```
 
-Reference: https://www.iso.org/standard/50864.html  
-Also look at: https://github.com/usnistgov/NFIQ2 for format examples
+Reference: https://www.iso.org/standard/50864.html
 
-#### Task 3 — QC Desktop Tool Tab 1 + Tab 3
+#### Task 3 — QC Tool Tab 1 + Tab 3
 
-In `backend/qctool/app.py`, you own:
-- **Tab 1: Image Quality** — upload image, call `/quality_check`, show blur/brightness/glare with color indicators
-- **Tab 3: Contact vs Contactless Comparison** — upload both, call `/process_contact` + `/process`, show SSIM/ORB/SIFT side by side
+In `backend/qctool/app.py`:
+- Tab 1: upload image → call `/quality_check` → show blur/brightness/glare
+- Tab 3: upload contact + contactless → compare SSIM/ORB/SIFT side by side
 
-Copy `compare_images.py` and `annotate.py` from IIT Bombay repo (`qctool` branch) into `backend/qctool/`.
-
-Start the QC tool:
+Start QC tool:
 ```bash
 cd backend/qctool
 pip install streamlit scikit-image scikit-learn
@@ -498,232 +611,170 @@ streamlit run app.py
 
 ---
 
-### 👤 Ishita
+### 👤 Ishita — Flutter UI
 
-**You work in:** `lib/` only  
-**Your branch:** `feature/ishita-ui`  
-**You do NOT touch:** `backend/` files
+**Branch:** `feature/ishita-ui`  
+**Files:** `lib/` only
 
 #### Task 1 — Shimmer loading states
 
-Install shimmer package — add to `pubspec.yaml`:
+Add to `pubspec.yaml` under dependencies:
 ```yaml
 shimmer: ^3.0.0
 ```
 
-Then run `flutter pub get`.
+Run `flutter pub get`.
 
-On every screen that calls the backend, while `_loading == true`, show a shimmer placeholder instead of blank space. Example pattern:
+On every screen while `_loading == true`, show shimmer instead of blank:
 ```dart
 if (_loading)
   Shimmer.fromColors(
     baseColor: YS.stroke,
     highlightColor: YS.cardAlt,
-    child: Container(height: 80, decoration: BoxDecoration(
-      color: YS.card, borderRadius: BorderRadius.circular(14))),
+    child: Container(height: 80,
+      decoration: BoxDecoration(color: YS.card,
+        borderRadius: BorderRadius.circular(14))),
   )
 ```
 
-Files to update: `enroll_screen.dart`, `authenticate_screen.dart`, `screens.dart` (Verify, QC, History, Settings)
+Files: `enroll_screen.dart`, `authenticate_screen.dart`, `screens.dart`
 
 #### Task 2 — Server offline error state
 
-On every screen, if the API call throws a connection error, show:
+On every screen, catch connection errors and show:
 ```dart
-// Instead of crashing or showing blank
-Container(
-  padding: EdgeInsets.all(20),
-  child: Column(children: [
-    Icon(Icons.wifi_off_rounded, color: YS.inkLight, size: 48),
-    SizedBox(height: 12),
-    Text('Cannot reach server', style: YS.label(14, color: YS.inkMid)),
-    Text('Check Settings → Server URL', style: YS.label(12, color: YS.inkLight)),
-    SizedBox(height: 16),
-    ElevatedButton(onPressed: _retry, child: Text('Retry')),
-  ]),
-)
+Column(children: [
+  Icon(Icons.wifi_off_rounded, color: YS.inkLight, size: 48),
+  Text('Cannot reach server', style: YS.label(14, color: YS.inkMid)),
+  Text('Go to Settings and check Server URL',
+      style: YS.label(12, color: YS.inkLight)),
+  ElevatedButton(onPressed: _retry, child: Text('Retry')),
+])
 ```
 
 #### Task 3 — Wire readiness score into QC screen
 
-After Nandhini finishes `/readiness`, update `QcScreen` in `screens.dart`:
-- Add a call to `ApiService.process()` which already returns quality data
-- Display the readiness score as a large number with grade badge
-- Show a breakdown bar for each component (blur, brightness, glare, minutiae)
+After Nandhini finishes `/readiness`, update `QcScreen` in `screens.dart` to show the 0–100 score with grade badge.
 
 #### Task 4 — Gesture liveness screen
 
-After Nandhini finishes `/liveness_gesture`, create `lib/screens/gesture_liveness_screen.dart`:
-- Show a number (1–5) as a challenge: "Show [N] fingers"
-- Use front camera
-- Capture image → POST to `/liveness_gesture` with `expected_count`
-- Show pass/fail result
-- Wire into enroll flow: before fingerprint capture, user must pass gesture challenge
+After Nandhini finishes `/liveness_gesture`, create `lib/screens/gesture_liveness_screen.dart` — show finger count challenge, use front camera, show pass/fail.
 
 ---
 
-### 👤 Atharv
+### 👤 Atharv — Flutter + GitHub
 
-**You work in:** `lib/widgets/` + `lib/` + GitHub  
-**Your branch:** `feature/atharv-autocapture`
+**Branch:** `feature/atharv-autocapture`  
+**Files:** `lib/widgets/fingerprint_camera_widget.dart`
 
-#### Task 1 — GitHub Setup (do this first, Day 1)
-
-The repo is already pushed at `https://github.com/ish1416/UIDAI`. You need to:
+#### Task 1 — GitHub setup
 
 ```bash
-# Clone it locally
 git clone https://github.com/ish1416/UIDAI.git
 cd UIDAI
-
-# Both branches already exist: main + develop
 git fetch --all
 git checkout develop
 ```
 
-Then on GitHub:
-- **Settings → Collaborators** → Add: Ishita, Ashish, Vignesh, Nandhini
-- **Settings → Branches → Add branch protection rule**:
-  - Branch name: `main`
-  - ✅ Require a pull request before merging
-  - ✅ Require status checks to pass (select `Flutter CI`)
-  - ✅ Require at least 1 approval
-  - ✅ Do not allow bypassing the above settings
+On GitHub:
+- Settings → Collaborators → add everyone
+- Settings → Branches → protect `main`:
+  - ✅ Require pull request before merging
+  - ✅ Require status checks (Flutter CI)
+  - ✅ Require 1 approval
 
-> **Note on branch protection:** Free GitHub accounts can only protect branches on public repos. If the repo is private, either make it public or upgrade to GitHub Team.
+> If branch protection is greyed out, make the repo **public**: Settings → General → Change visibility → Public
 
-#### Task 2 — Auto-capture in `fingerprint_camera_widget.dart`
+#### Task 2 — Auto-capture
 
-The camera widget currently only captures when the user taps "Capture". You need to add:
-
-1. A `Timer` that fires every 600ms while camera is live
-2. On each tick, take a low-res frame and send to `/quality_check`
-3. Parse the `guidance` string from response
-4. Show guidance text on the viewfinder overlay
-5. If `passed == true` for 3 consecutive frames → auto-trigger `_capture()`
-
-Key additions to `_FingerprintCameraWidgetState`:
+Add to `_FingerprintCameraWidgetState`:
 ```dart
 Timer? _qualityTimer;
 String _guidance = 'Place finger inside oval';
 int _passCount = 0;
-bool _autoCapture = true; // can be toggled by user
 
-// Start timer when camera goes live
 void _startQualityPolling() {
   _qualityTimer = Timer.periodic(Duration(milliseconds: 600), (_) async {
     if (!_live || _ctrl == null) return;
-    // Take frame → send to /quality_check → update _guidance
-    // If passed 3 times in a row → _capture()
+    // Capture frame → POST to /quality_check → update _guidance
+    // If passed 3 consecutive times → call _capture()
   });
 }
 ```
 
-#### Task 3 — Wire ROI guidance
+#### Task 3 — ROI guidance
 
-After Vignesh finishes `/check_roi`, add ROI guidance to the camera overlay:
-- Call `/check_roi` in the same polling loop
-- Show "Move left / Move right / Move up / Move down" on the viewfinder
-- Only auto-capture when BOTH quality AND ROI pass
+After Vignesh finishes `/check_roi`, add to the polling loop:
+- Show "Move left / right / up / down" on viewfinder
+- Only auto-capture when quality AND ROI both pass
 
 ---
 
-## Part 4 — Testing Your Work
+## Part 9 — Testing Before Raising a PR
 
 ### Backend (Ashish · Vignesh · Nandhini)
 
-Test every endpoint you build with curl before raising a PR:
+Always test with curl before raising a PR:
 
 ```bash
-# Test /readiness
+# Health check — make sure nothing is broken
+curl http://localhost:5001/health
+
+# Test your new endpoint
 curl -X POST http://localhost:5001/readiness \
-  -F "image=@backend/uploads/any_fingerprint.jpg"
+  -F "image=@uploads/any_fingerprint.jpg"
 
-# Test /check_roi
 curl -X POST http://localhost:5001/check_roi \
-  -F "image=@backend/uploads/any_fingerprint.jpg"
+  -F "image=@uploads/any_fingerprint.jpg"
 
-# Test /process_contact
 curl -X POST http://localhost:5001/process_contact \
-  -F "image=@backend/uploads/any_fingerprint.jpg"
+  -F "image=@uploads/any_fingerprint.jpg"
 
-# Test /export_template
 curl -X POST http://localhost:5001/export_template \
   -F "uid=test123" -F "batch=BATCH_A"
 
-# Test /liveness_gesture
 curl -X POST http://localhost:5001/liveness_gesture \
-  -F "image=@backend/uploads/any_fingerprint.jpg" \
+  -F "image=@uploads/any_fingerprint.jpg" \
   -F "expected_count=3"
-```
-
-Also test that existing endpoints still work after your changes:
-```bash
-curl http://localhost:5001/health
 ```
 
 ### Flutter (Atharv · Ishita)
 
-Before raising a PR, always run:
 ```bash
-# From repo root
-flutter analyze          # must show 0 errors
+cd UIDAI
+flutter analyze        # must show 0 errors
 flutter build apk --debug  # must succeed
 ```
 
-Then test on a physical device or emulator.
+Then install the new APK on your phone and test the feature manually.
 
 ---
 
-## Part 5 — Common Issues & Fixes
+## Part 10 — Common Issues & Fixes
 
-### "No module named X" (backend)
-```bash
-# Make sure venv is activated
-source venv/bin/activate   # Mac
-venv\Scripts\activate      # Windows
-pip install X
-```
-
-### "flutter: command not found"
-- Mac: add `export PATH="$PATH:/path/to/flutter/bin"` to `~/.zshrc` then `source ~/.zshrc`
-- Windows: add Flutter `bin` folder to System Environment Variables → PATH
-
-### "Merge conflict" in git
-```bash
-# When you run git merge develop and see conflicts:
-# Open the conflicted file in VS Code
-# You'll see <<<<<<< HEAD ... ======= ... >>>>>>> develop
-# Keep the correct version, delete the markers
-# Then:
-git add .
-git commit -m "fix: resolve merge conflict"
-```
-
-### Backend server crashes on startup
-- Check all model files are in `backend/` folder
-- Check venv is activated
-- Run `python -c "import torch; print(torch.__version__)"` — if error, reinstall torch
-
-### App says "Server unreachable"
-- Make sure backend is running (`bash start.sh`)
-- Check phone and laptop are on same WiFi
-- In app Settings, verify URL is `http://<laptop-IP>:5001`
-- Try `curl http://<laptop-IP>:5001/health` from your phone's browser
+| Problem | Fix |
+|---------|-----|
+| `No module named X` | Run `source venv/bin/activate` then `pip install X` |
+| `flutter: command not found` | Add Flutter bin to PATH, restart terminal |
+| `No devices found` | Enable USB Debugging on phone, reconnect USB |
+| `Server unreachable` in app | Check same WiFi, check server is running, verify IP in Settings |
+| `Install blocked` on phone | Settings → Security → enable Install unknown apps |
+| `Merge conflict` | Open file in VS Code, keep correct version, delete `<<<<` markers, `git add . && git commit` |
+| Backend crashes on startup | Check all model files are in `backend/`, check venv is activated |
+| `tensorflow` install fails on Windows | Use `pip install tensorflow-cpu` instead |
 
 ---
 
-## Part 6 — Daily Standup Format
+## Part 11 — Daily Standup
 
-Every day, each person posts in the group chat:
+Post in the group chat every day:
 
 ```
-✅ Done yesterday: [what you finished]
-🔨 Doing today: [what you're working on]
-❌ Blocked by: [anything stopping you, or "nothing"]
+✅ Done yesterday:
+🔨 Doing today:
+❌ Blocked by:
 ```
 
 ---
 
-*YellowSense Technologies · SITAA Cohort 1 · 2025*  
-*Questions? Ask Atharv.*
+*YellowSense Technologies · SITAA Cohort 1 · 2025 · Questions? Ask Atharv.*
