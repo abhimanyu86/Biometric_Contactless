@@ -24,8 +24,13 @@ class ApiService {
     final fd = FormData.fromMap({
       'image': await MultipartFile.fromFile(image.path, filename: 'fp.jpg'),
     });
-    final r = await _dio.post('/quality_check', data: fd);
-    return r.data;
+    try {
+      final r = await _dio.post('/quality_check', data: fd,
+          options: Options(receiveTimeout: const Duration(seconds: 5)));
+      return r.data;
+    } on DioException {
+      return {};
+    }
   }
 
   static Future<Map<String, dynamic>> enroll({
