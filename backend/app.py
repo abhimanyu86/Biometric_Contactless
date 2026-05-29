@@ -1111,6 +1111,74 @@ def quality_check():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+# ── Check ROI ─────────────────────────────────────────────────────────────────
+@app.route("/check_roi", methods=["POST"])
+def check_roi():
+    try:
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+
+        if "finger_detector" not in global_models:
+            global_models["finger_detector"] = YOLO(YOLO_MODEL_PATH, task="detect")
+
+        image_bytes = np.frombuffer(request.files["image"].read(), np.uint8)
+        image_bgr = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
+        if image_bgr is None:
+            return jsonify({"success": False, "error": "cannot read image"}), 400
+
+        results = global_models["finger_detector"](
+            image_bgr,
+            save=False,
+            imgsz=640,
+            conf=0.15,
+            verbose=False,
+        )
+        if not results or len(results[0].boxes) == 0:
+            return jsonify({
+                "success": False,
+                "in_roi": False,
+                "offset_x": 0.0,
+                "offset_y": 0.0,
+                "guidance": "Place finger in view",
+            }), 422
+
+        boxes = results[0].boxes.xyxy.cpu().numpy()
+        confs = results[0].boxes.conf.cpu().numpy()
+        best_idx = int(np.argmax(confs))
+
+        x1, y1, x2, y2 = boxes[best_idx]
+        image_h, image_w = image_bgr.shape[:2]
+
+        finger_center_x = float((x1 + x2) * 0.5)
+        finger_center_y = float((y1 + y2) * 0.5)
+        image_center_x = image_w * 0.5
+        image_center_y = image_h * 0.5
+
+        offset_x = float(finger_center_x - image_center_x)
+        offset_y = float(finger_center_y - image_center_y)
+        tolerance_x = image_w * 0.10
+        tolerance_y = image_h * 0.10
+        in_roi = bool(abs(offset_x) <= tolerance_x and abs(offset_y) <= tolerance_y)
+
+        if in_roi:
+            guidance = "Good - finger centered"
+        elif abs(offset_x) >= abs(offset_y):
+            guidance = "Move right" if offset_x < 0 else "Move left"
+        else:
+            guidance = "Move down" if offset_y < 0 else "Move up"
+
+        return jsonify({
+            "success": True,
+            "in_roi": in_roi,
+            "offset_x": round(offset_x, 2),
+            "offset_y": round(offset_y, 2),
+            "guidance": guidance,
+            "detection_conf": round(float(confs[best_idx]), 4),
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # ── Enroll ────────────────────────────────────────────────────────────────────
 @app.route("/enroll", methods=["POST"])
 def enroll():
