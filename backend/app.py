@@ -26,6 +26,26 @@ from io import BytesIO
 
 warnings.filterwarnings("ignore")
 
+# ── MediaPipe — version-safe import ──────────────────────────────────────────
+# mediapipe 0.10+ moved Hands; this handles both versions + missing install
+MEDIAPIPE_AVAILABLE = False
+_mp_hands = None
+try:
+    import mediapipe as mp
+    if hasattr(mp, 'solutions') and hasattr(mp.solutions, 'hands'):
+        # Legacy API (0.9.x and below)
+        _mp_hands = mp.solutions.hands
+        MEDIAPIPE_AVAILABLE = True
+    else:
+        # Newer 0.10+ — try the compat shim path
+        try:
+            from mediapipe.python.solutions import hands as _mp_hands
+            MEDIAPIPE_AVAILABLE = True
+        except ImportError:
+            MEDIAPIPE_AVAILABLE = False
+except ImportError:
+    MEDIAPIPE_AVAILABLE = False
+
 app = Flask(__name__)
 CORS(app)
 
@@ -913,6 +933,154 @@ def match_templates(t1, t2):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NANDHINI — READINESS SCORE + GESTURE LIVENESS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def compute_readiness_score(image_bgr):
+    blur_result   = check_blur(image_bgr)
+    bright_result = check_brightness(image_bgr)
+    glare_result  = check_glare(image_bgr)
+
+    blur_score  = blur_result["blur_score"]
+    brightness  = bright_result["brightness"]
+    has_glare   = glare_result["has_glare"]
+
+    minutiae_count = 0
+    try:
+        import uuid
+        tmp_path = os.path.join(UPLOAD_FOLDER, f"tmp_readiness_{uuid.uuid4().hex}.png")
+        cv2.imwrite(tmp_path, image_bgr)
+        cropped, _ = detect_and_crop(tmp_path)
+        preprocessed = preprocess_fingerprint(cropped)
+        minutiae = detect_minutiae(preprocessed)
+        minutiae_count = len(minutiae)
+        os.remove(tmp_path)
+    except Exception:
+        pass
+
+    BLUR_MIN, BLUR_MAX = 0.0, 200.0
+    blur_norm = min(max(blur_score, BLUR_MIN), BLUR_MAX) / BLUR_MAX
+
+    BRIGHT_CENTER = 130.0
+    bright_norm = max(0.0, 1.0 - abs(brightness - BRIGHT_CENTER) / BRIGHT_CENTER)
+
+    glare_norm = 0.0 if has_glare else 1.0
+
+    MINUTIAE_MAX = 60
+    minutiae_norm = min(minutiae_count, MINUTIAE_MAX) / MINUTIAE_MAX
+
+    score = (blur_norm * 30) + (bright_norm * 25) + (glare_norm * 20) + (minutiae_norm * 25)
+    score = int(round(min(max(score, 0.0), 100.0)))
+
+    if score >= 80:
+        grade = "Excellent"
+    elif score >= 60:
+        grade = "Good"
+    elif score >= 40:
+        grade = "Marginal"
+    else:
+        grade = "Rejected"
+
+    return {
+        "readiness_score": score,
+        "grade": grade,
+        "breakdown": {
+            "blur":       round(blur_score, 2),
+            "brightness": round(brightness, 2),
+            "glare":      has_glare,
+            "minutiae":   minutiae_count,
+        }
+    }
+
+
+def count_extended_fingers(image_bgr):
+    if not MEDIAPIPE_AVAILABLE or _mp_hands is None:
+        raise RuntimeError("mediapipe is not available. Run: pip install mediapipe")
+
+    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+
+    with _mp_hands.Hands(
+        static_image_mode=True,
+        max_num_hands=1,
+        min_detection_confidence=0.5
+    ) as hands:
+        results = hands.process(image_rgb)
+
+    if not results.multi_hand_landmarks:
+        return 0
+
+    landmarks = results.multi_hand_landmarks[0].landmark
+
+    finger_tips = [4, 8, 12, 16, 20]
+    finger_pips = [3, 6, 10, 14, 18]
+
+    count = 0
+    if landmarks[4].x < landmarks[3].x:
+        count += 1
+    for tip, pip in zip(finger_tips[1:], finger_pips[1:]):
+        if landmarks[tip].y < landmarks[pip].y:
+            count += 1
+    return count
+
+
+# ── /readiness endpoint ───────────────────────────────────────────────────────
+@app.route("/readiness", methods=["POST"])
+def readiness():
+    try:
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+        f  = request.files["image"]
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(UPLOAD_FOLDER, f"{ts}_{f.filename}")
+        f.save(path)
+        img = cv2.imread(path)
+        if img is None:
+            return jsonify({"success": False, "error": "Cannot read image"}), 400
+        result = compute_readiness_score(img)
+        return jsonify({"success": True, **result})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── /liveness_gesture endpoint ────────────────────────────────────────────────
+@app.route("/liveness_gesture", methods=["POST"])
+def liveness_gesture():
+    try:
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+        expected_str = request.form.get("expected_count", "").strip()
+        if not expected_str:
+            return jsonify({"success": False, "error": "expected_count required"}), 400
+        try:
+            expected_count = int(expected_str)
+            if not (1 <= expected_count <= 5):
+                raise ValueError()
+        except ValueError:
+            return jsonify({"success": False, "error": "expected_count must be 1-5"}), 400
+        f  = request.files["image"]
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(UPLOAD_FOLDER, f"{ts}_{f.filename}")
+        f.save(path)
+        img = cv2.imread(path)
+        if img is None:
+            return jsonify({"success": False, "error": "Cannot read image"}), 400
+        detected_count = count_extended_fingers(img)
+        passed = detected_count == expected_count
+        return jsonify({
+            "success":        True,
+            "detected_count": detected_count,
+            "expected_count": expected_count,
+            "passed":         passed,
+        })
+    except RuntimeError as e:
+        return jsonify({"success": False, "error": str(e)}), 501
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # API ENDPOINTS
 # ══════════════════════════════════════════════════════════════════════════════
 
