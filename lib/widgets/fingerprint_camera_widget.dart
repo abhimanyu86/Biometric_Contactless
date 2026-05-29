@@ -38,7 +38,8 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
   Timer? _qualityTimer;
   bool _polling = false;
   bool _capturing = false;           // Bug 2+3 fix: dedicated capture lock
-  bool _autoCaptureActive = true;    // Bug 8 fix: snapshot of intent at poll time
+  bool _autoCaptureActive = true;
+  String _roiGuidance = '';          // ROI guidance from /check_roi
   String _guidance = 'Place finger inside the oval';
   Color _guidanceColor = Colors.white60;
   double _qualityScore = 0.0;
@@ -118,7 +119,7 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
     if (mounted) {
       setState(() {
         _live = false; _torchOn = false; _captured = null;
-        _capturing = false; _polling = false;
+        _capturing = false; _polling = false; _roiGuidance = '';
         _guidance = 'Place finger inside the oval';
         _guidanceColor = Colors.white60;
         _qualityScore = 0.0; _passCount = 0;
@@ -177,7 +178,7 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
 
   Future<void> _retry() async {
     setState(() {
-      _captured = null; _live = false; _capturing = false;
+      _captured = null; _live = false; _capturing = false; _roiGuidance = '';
       _passCount = 0; _qualityScore = 0.0;
       _guidance = 'Place finger inside the oval';
       _guidanceColor = Colors.white60;
@@ -190,7 +191,8 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
   void _startQualityPolling() {
     _qualityTimer?.cancel();
     _passCount = 0;
-    _autoCaptureActive = true;   // Bug 8 fix: mark intent
+    _roiGuidance = '';
+    _autoCaptureActive = true;
     _qualityTimer = Timer.periodic(_pollInterval, (_) => _pollQuality());
   }
 
@@ -243,6 +245,18 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
       });
 
       if (passed) {
+        // Also run ROI check in parallel — non-blocking, best effort
+        ApiService.checkRoi(file).then((roi) {
+          if (!mounted || !_autoCaptureActive) return;
+          final roiGuidance = roi['guidance'] as String? ?? '';
+          final inRoi = roi['in_roi'] == true;
+          if (!inRoi && roiGuidance.isNotEmpty) {
+            setState(() => _roiGuidance = roiGuidance);
+          } else {
+            setState(() => _roiGuidance = '');
+          }
+        }).catchError((_) {});
+
         _passCount++;
         if (_passCount >= _passesNeeded && _autoCaptureActive && !_capturing) {
           _polling = false;
@@ -251,6 +265,7 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
         }
       } else {
         _passCount = 0;
+        setState(() => _roiGuidance = '');
       }
     } catch (_) {
       if (mounted) {
@@ -494,13 +509,30 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
             // Guidance text
             Positioned(
               bottom: 14, left: 16, right: 16,
-              child: Text(
-                _captured != null ? '✓  Image captured' : _guidance,
-                textAlign: TextAlign.center,
-                style: YS.label(11,
-                    color: _captured != null ? YS.amber : _guidanceColor,
-                    w: FontWeight.w500),
-              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                if (_roiGuidance.isNotEmpty && _live && _autoCapture)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.open_with_rounded, size: 12, color: Colors.orangeAccent),
+                      const SizedBox(width: 5),
+                      Text(_roiGuidance,
+                          style: YS.label(11, color: Colors.orangeAccent, w: FontWeight.w600)),
+                    ]),
+                  ),
+                Text(
+                  _captured != null ? '✓  Image captured' : _guidance,
+                  textAlign: TextAlign.center,
+                  style: YS.label(11,
+                      color: _captured != null ? YS.amber : _guidanceColor,
+                      w: FontWeight.w500),
+                ),
+              ]),
             ),
           ]),
         ),

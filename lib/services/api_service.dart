@@ -105,4 +105,29 @@ class ApiService {
     final r = await _dio.get('/history', queryParameters: {'batch': batch});
     return r.data['history'] ?? [];
   }
+
+  static Future<Map<String, dynamic>> readiness(File image) async {
+    final fd = FormData.fromMap({
+      'image': await MultipartFile.fromFile(image.path, filename: 'fp.jpg'),
+    });
+    try {
+      final r = await _dio.post('/readiness', data: fd);
+      return r.data;
+    } on DioException catch (e) {
+      return e.response?.data ?? {'success': false, 'error': e.message};
+    }
+  }
+
+  static Future<Map<String, dynamic>> checkRoi(File image) async {
+    final fd = FormData.fromMap({
+      'image': await MultipartFile.fromFile(image.path, filename: 'fp.jpg'),
+    });
+    try {
+      final r = await _dio.post('/check_roi', data: fd,
+          options: Options(receiveTimeout: const Duration(seconds: 5)));
+      return r.data;
+    } on DioException {
+      return {};
+    }
+  }
 }

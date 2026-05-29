@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
 import '../widgets/fingerprint_camera_widget.dart';
 import '../services/api_service.dart';
+import 'screens.dart' show ysShimmer, ysOfflineCard;
 
 class EnrollScreen extends StatefulWidget {
   const EnrollScreen({super.key});
@@ -38,7 +39,13 @@ class _EnrollScreenState extends State<EnrollScreen> {
         setState(() => _image = null);
       }
     } catch (e) {
-      setState(() { _result = {'success': false, 'error': e.toString()}; _loading = false; });
+      final isOffline = e.toString().contains('SocketException') ||
+          e.toString().contains('Connection refused') ||
+          e.toString().contains('timed out');
+      setState(() {
+        _result = {'success': false, 'error': e.toString(), 'offline': isOffline};
+        _loading = false;
+      });
     }
   }
 
@@ -73,8 +80,14 @@ class _EnrollScreenState extends State<EnrollScreen> {
             onImageCaptured: (f) => setState(() { _image = f; _result = null; }),
             disabled: _loading),
           const SizedBox(height: 20),
-          if (_result != null) _resultCard(_result!),
-          if (_result != null) const SizedBox(height: 16),
+          if (_loading) ...[ysShimmer(height: 80), const SizedBox(height: 8)],
+          if (!_loading && _result != null) ...[const SizedBox(height: 4),
+            if (_result!['offline'] == true)
+              ysOfflineCard(() => setState(() => _result = null))
+            else
+              _resultCard(_result!),
+            const SizedBox(height: 16),
+          ],
           ElevatedButton(
             onPressed: _loading ? null : _enroll,
             child: _loading

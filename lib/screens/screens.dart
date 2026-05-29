@@ -1,9 +1,50 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 import '../theme/app_theme.dart';
 import '../widgets/fingerprint_camera_widget.dart';
 import '../services/api_service.dart';
+
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+Widget ysShimmer({double height = 80, double? width, double radius = 14}) =>
+    Shimmer.fromColors(
+      baseColor: YS.stroke,
+      highlightColor: YS.cardAlt,
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: YS.card,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+    );
+
+Widget ysOfflineCard(VoidCallback onRetry) => Container(
+  padding: const EdgeInsets.all(24),
+  decoration: BoxDecoration(
+    color: YS.card,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: YS.stroke),
+  ),
+  child: Column(children: [
+    const Icon(Icons.wifi_off_rounded, size: 40, color: YS.inkLight),
+    const SizedBox(height: 12),
+    Text('Cannot reach server', style: YS.label(14, color: YS.inkMid, w: FontWeight.w600)),
+    const SizedBox(height: 4),
+    Text('Check Settings → Server URL', style: YS.label(12, color: YS.inkLight)),
+    const SizedBox(height: 16),
+    SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onRetry,
+        child: const Text('Retry'),
+      ),
+    ),
+  ]),
+);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // VERIFY  1:1
@@ -37,7 +78,14 @@ class _VerifyScreenState extends State<VerifyScreen> {
           uid: _uidCtrl.text.trim(), batch: _batchCtrl.text.trim(), image: image);
       setState(() { _result = r; _loading = false; });
     } catch (e) {
-      setState(() { _result = {'success': false, 'error': e.toString()}; _loading = false; });
+      final msg = e.toString();
+      final isOffline = msg.contains('SocketException') ||
+          msg.contains('Connection refused') ||
+          msg.contains('timed out');
+      setState(() {
+        _result = {'success': false, 'error': e.toString(), 'offline': isOffline};
+        _loading = false;
+      });
     }
   }
 
@@ -79,9 +127,13 @@ class _VerifyScreenState extends State<VerifyScreen> {
           const SizedBox(height: 10),
           FingerprintCameraWidget(onImageCaptured: _verify, disabled: _loading),
           const SizedBox(height: 20),
-          if (_loading) LinearProgressIndicator(color: YS.blue, backgroundColor: YS.stroke,
-              borderRadius: BorderRadius.circular(4)),
-          if (_result != null) ...[const SizedBox(height: 16), _resultCard(_result!)],
+          if (_loading) ...[ysShimmer(height: 80), const SizedBox(height: 8), ysShimmer(height: 60)],
+          if (!_loading && _result != null) ...[const SizedBox(height: 16),
+            if (_result!['offline'] == true)
+              ysOfflineCard(() => setState(() => _result = null))
+            else
+              _resultCard(_result!)
+          ],
           const SizedBox(height: 40),
         ]),
       ),
@@ -149,14 +201,29 @@ class QcScreen extends StatefulWidget {
 class _QcScreenState extends State<QcScreen> {
   bool _loading = false;
   Map<String, dynamic>? _result;
+  Map<String, dynamic>? _readiness;
 
   Future<void> _run(File image) async {
-    setState(() { _loading = true; _result = null; });
+    setState(() { _loading = true; _result = null; _readiness = null; });
     try {
-      final r = await ApiService.process(image);
-      setState(() { _result = r; _loading = false; });
+      // Run process + readiness in parallel
+      final results = await Future.wait([
+        ApiService.process(image),
+        ApiService.readiness(image),
+      ]);
+      setState(() {
+        _result    = results[0];
+        _readiness = results[1];
+        _loading   = false;
+      });
     } catch (e) {
-      setState(() { _result = {'success': false, 'error': e.toString()}; _loading = false; });
+      final isOffline = e.toString().contains('SocketException') ||
+          e.toString().contains('Connection refused') ||
+          e.toString().contains('timed out');
+      setState(() {
+        _result = {'success': false, 'error': e.toString(), 'offline': isOffline};
+        _loading = false;
+      });
     }
   }
 
@@ -175,14 +242,84 @@ class _QcScreenState extends State<QcScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           FingerprintCameraWidget(onImageCaptured: _run, disabled: _loading),
           const SizedBox(height: 20),
-          if (_loading) LinearProgressIndicator(color: YS.amber, backgroundColor: YS.stroke,
-              borderRadius: BorderRadius.circular(4)),
-          if (_result != null) ...[const SizedBox(height: 16), _qcCard(_result!)],
+          if (_loading) ...[ysShimmer(height: 80), const SizedBox(height: 8), ysShimmer(height: 200)],
+          if (!_loading && _result?['offline'] == true) ...[const SizedBox(height: 16),
+            ysOfflineCard(() => setState(() { _result = null; _readiness = null; }))],
+          if (!_loading && _readiness != null) ...[const SizedBox(height: 16), _readinessCard(_readiness!)],
+          if (!_loading && _result != null && _result!['offline'] != true) ...[const SizedBox(height: 16), _qcCard(_result!)],
           const SizedBox(height: 40),
         ]),
       ),
     );
   }
+
+  Widget _readinessCard(Map<String, dynamic> r) {
+    final score = (r['readiness_score'] as num?)?.toInt() ?? 0;
+    final grade = r['grade'] as String? ?? '—';
+    final breakdown = r['breakdown'] as Map<String, dynamic>? ?? {};
+    final gradeColor = grade == 'Excellent' ? YS.green
+        : grade == 'Good'     ? YS.green
+        : grade == 'Marginal' ? YS.orange
+        : YS.red;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: YS.card, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: YS.stroke), boxShadow: YS.cardShadow,
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('Readiness Score', style: YS.display(16, w: FontWeight.w700)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: gradeColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: gradeColor.withValues(alpha: 0.3)),
+            ),
+            child: Text(grade, style: YS.label(12, color: gradeColor, w: FontWeight.w700)),
+          ),
+        ]),
+        const SizedBox(height: 16),
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text('$score', style: YS.display(40, color: gradeColor, w: FontWeight.w800)),
+          Padding(padding: const EdgeInsets.only(bottom: 6, left: 4),
+            child: Text('/100', style: YS.label(14, color: YS.inkLight))),
+        ]),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: score / 100.0,
+            minHeight: 8,
+            backgroundColor: YS.stroke,
+            color: gradeColor,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(children: [
+          _miniStat('Blur',       '${breakdown['blur'] ?? '—'}'),
+          _miniStat('Brightness', '${breakdown['brightness'] ?? '—'}'),
+          _miniStat('Glare',      breakdown['glare'] == true ? 'Yes' : 'No'),
+          _miniStat('Minutiae',   '${breakdown['minutiae'] ?? '—'}'),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _miniStat(String k, String v) => Expanded(
+    child: Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: YS.cardAlt, borderRadius: BorderRadius.circular(10)),
+      child: Column(children: [
+        Text(v, style: YS.label(13, w: FontWeight.w700)),
+        const SizedBox(height: 2),
+        Text(k, style: YS.label(10, color: YS.inkLight)),
+      ]),
+    ),
+  );
 
   Widget _qcCard(Map<String, dynamic> r) {
     if (r['success'] != true) {
@@ -243,13 +380,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final _batchCtrl = TextEditingController();
   List<dynamic> _history = [];
   bool _loading = false;
+  bool _offline = false;
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _offline = false; });
     try {
       final h = await ApiService.getHistory(batch: _batchCtrl.text.trim());
       setState(() { _history = h; _loading = false; });
-    } catch (_) { setState(() => _loading = false); }
+    } catch (e) {
+      final isOffline = e.toString().contains('SocketException') ||
+          e.toString().contains('Connection refused') ||
+          e.toString().contains('timed out');
+      setState(() { _loading = false; _offline = isOffline; });
+    }
   }
 
   @override
@@ -273,12 +416,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ElevatedButton(onPressed: _load, child: const Text('Load')),
           ]),
           const SizedBox(height: 16),
-          if (_loading) LinearProgressIndicator(color: YS.amber, backgroundColor: YS.stroke,
-              borderRadius: BorderRadius.circular(4)),
+          if (_loading) ...[const SizedBox(height: 8), ysShimmer(height: 70), const SizedBox(height: 8), ysShimmer(height: 70), const SizedBox(height: 8), ysShimmer(height: 70)],
           const SizedBox(height: 8),
           Expanded(
-            child: _history.isEmpty
-                ? Center(child: Text('No records yet', style: YS.label(14, color: YS.inkLight)))
+            child: _offline
+                ? ysOfflineCard(_load)
+                : _history.isEmpty && !_loading
+                    ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.history_rounded, size: 48, color: YS.inkFaint),
+                        const SizedBox(height: 12),
+                        Text('No records yet', style: YS.label(14, color: YS.inkLight)),
+                        const SizedBox(height: 4),
+                        Text('Tap Load to fetch history', style: YS.label(12, color: YS.inkFaint)),
+                      ]))
                 : ListView.separated(
                     itemCount: _history.length,
                     separatorBuilder: (_, s) => Divider(color: YS.stroke, height: 1),

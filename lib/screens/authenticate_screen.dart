@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
 import '../widgets/fingerprint_camera_widget.dart';
 import '../services/api_service.dart';
+import 'screens.dart' show ysShimmer, ysOfflineCard;
 
 class AuthenticateScreen extends StatefulWidget {
   const AuthenticateScreen({super.key});
@@ -31,7 +32,13 @@ class _AuthenticateScreenState extends State<AuthenticateScreen> {
       final r = await ApiService.authenticate(batch: _batchCtrl.text.trim(), image: image);
       setState(() { _result = r; _loading = false; });
     } catch (e) {
-      setState(() { _result = {'success': false, 'error': e.toString()}; _loading = false; });
+      final isOffline = e.toString().contains('SocketException') ||
+          e.toString().contains('Connection refused') ||
+          e.toString().contains('timed out');
+      setState(() {
+        _result = {'success': false, 'error': e.toString(), 'offline': isOffline};
+        _loading = false;
+      });
     }
   }
 
@@ -73,26 +80,18 @@ class _AuthenticateScreenState extends State<AuthenticateScreen> {
           const SizedBox(height: 10),
           FingerprintCameraWidget(onImageCaptured: _authenticate, disabled: _loading),
           const SizedBox(height: 20),
-          if (_loading) _loadingCard(),
-          if (_result != null) _resultCard(_result!),
+          if (_loading) ...[ysShimmer(height: 80), const SizedBox(height: 8), ysShimmer(height: 60)],
+          if (!_loading && _result != null) ...[const SizedBox(height: 16),
+            if (_result!['offline'] == true)
+              ysOfflineCard(() => setState(() => _result = null))
+            else
+              _resultCard(_result!)
+          ],
           const SizedBox(height: 40),
         ]),
       ),
     );
   }
-
-  Widget _loadingCard() => Container(
-    margin: const EdgeInsets.only(bottom: 16),
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(color: YS.card, borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: YS.stroke)),
-    child: Column(children: [
-      LinearProgressIndicator(backgroundColor: YS.stroke, color: YS.green,
-          borderRadius: BorderRadius.circular(4)),
-      const SizedBox(height: 12),
-      Text('Processing fingerprint...', style: YS.label(13, color: YS.inkMid)),
-    ]),
-  );
 
   Widget _resultCard(Map<String, dynamic> r) {
     final ok    = r['success'] == true;
