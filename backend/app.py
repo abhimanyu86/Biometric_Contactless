@@ -432,6 +432,98 @@ def check_liveness(cropped_bgr):
 # SEGMENTATION + PREPROCESSING
 # ══════════════════════════════════════════════════════════════════════════════
 
+def apply_gabor_filters(image):
+    """
+    Ridge enhancement using multi-orientation Gabor filters.
+    """
+    enhanced = np.zeros_like(image, dtype=np.float32)
+
+    for theta in np.arange(0, np.pi, np.pi / 8):
+        kernel = cv2.getGaborKernel(
+            (21, 21),
+            sigma=5,
+            theta=theta,
+            lambd=10,
+            gamma=0.5,
+            psi=0,
+            ktype=cv2.CV_32F
+        )
+
+        filtered = cv2.filter2D(image, cv2.CV_32F, kernel)
+        enhanced = np.maximum(enhanced, filtered)
+
+    enhanced = cv2.normalize(
+        enhanced,
+        None,
+        0,
+        255,
+        cv2.NORM_MINMAX
+    )
+
+    return enhanced.astype(np.uint8)
+
+#______________________________________________________________________________
+#________Contact fingerprint preprocessing pipeline________
+
+def preprocess_contact_fingerprint(image_bgr):
+    """
+    Contact-based fingerprint preprocessing pipeline.
+    """
+
+    # STEP 1 — grayscale
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+
+    # STEP 2 — normalization
+    normalized = cv2.normalize(
+        gray,
+        None,
+        0,
+        255,
+        cv2.NORM_MINMAX
+    )
+
+    # STEP 3 — CLAHE contrast enhancement
+    clahe = cv2.createCLAHE(
+        clipLimit=3.0,
+        tileGridSize=(8, 8)
+    )
+
+    clahe_img = clahe.apply(normalized)
+
+    # STEP 4 — Otsu threshold
+    _, otsu = cv2.threshold(
+        clahe_img,
+        0,
+        255,
+        cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+
+    # STEP 5 — morphology cleaning
+    kernel = np.ones((3, 3), np.uint8)
+
+    morph = cv2.morphologyEx(
+        otsu,
+        cv2.MORPH_OPEN,
+        kernel
+    )
+
+    morph = cv2.morphologyEx(
+        morph,
+        cv2.MORPH_CLOSE,
+        kernel
+    )
+
+    # STEP 6 — ridge enhancement
+    enhanced = apply_gabor_filters(morph)
+
+    # STEP 7 — resize
+    final = cv2.resize(
+        enhanced,
+        (256, 256)
+    )
+
+    return final
+
 def get_segmentation_mask(image_bgr, thresh=0.3):
     interp  = global_models["u2net"]
     in_det  = global_models["u2net_input"]
@@ -510,6 +602,75 @@ def preprocess_fingerprint(cropped_bgr):
 
     return final
 
+#____________________Contact-based fingerprint preprocessing__________________________________________________________
+def preprocess_contact_fingerprint(image_bgr):
+    """
+    Preprocessing for CONTACT-BASED fingerprints
+    (scanner fingerprints)
+    """
+
+    # 1. grayscale
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+
+    # 2. normalization
+    normalized = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX)
+
+    # 3. CLAHE contrast enhancement
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    enhanced = clahe.apply(normalized)
+
+    # 4. ridge enhancement using Gabor filters
+    gabor_sum = np.zeros_like(enhanced, dtype=np.float32)
+
+    for theta in np.arange(0, np.pi, np.pi / 8):
+        kernel = cv2.getGaborKernel(
+            (21, 21),
+            5,
+            theta,
+            10,
+            0.5,
+            0,
+            ktype=cv2.CV_32F
+        )
+
+        filtered = cv2.filter2D(enhanced, cv2.CV_32F, kernel)
+        gabor_sum += np.abs(filtered)
+
+    gabor_sum = cv2.normalize(
+        gabor_sum,
+        None,
+        0,
+        255,
+        cv2.NORM_MINMAX
+    ).astype(np.uint8)
+
+    # 5. adaptive threshold
+    binary = cv2.adaptiveThreshold(
+        gabor_sum,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        15,
+        2
+    )
+
+    # 6. morphology cleanup
+    kernel = np.ones((3,3), np.uint8)
+
+    cleaned = cv2.morphologyEx(
+        binary,
+        cv2.MORPH_OPEN,
+        kernel
+    )
+
+    cleaned = cv2.morphologyEx(
+        cleaned,
+        cv2.MORPH_CLOSE,
+        kernel
+    )
+
+    return cleaned
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MINUTIAE EXTRACTION
@@ -575,6 +736,47 @@ def create_visualization(preprocessed, minutiae):
 def img_to_b64(img):
     _, buf = cv2.imencode(".png", img)
     return base64.b64encode(buf).decode()
+
+#____________________________Adding comparision function__________________________________________________
+def compare_contact_vs_contactless(img1, img2):
+
+    orb = cv2.ORB_create(500)
+
+    kp1, des1 = orb.detectAndCompute(img1, None)
+    kp2, des2 = orb.detectAndCompute(img2, None)
+
+    if des1 is None or des2 is None:
+        return {
+            "similarity_score": 0,
+            "matches": 0
+        }
+
+    bf = cv2.BFMatcher(
+        cv2.NORM_HAMMING,
+        crossCheck=True
+    )
+
+    matches = bf.match(des1, des2)
+
+    matches = sorted(
+        matches,
+        key=lambda x: x.distance
+    )
+
+    good_matches = [
+        m for m in matches
+        if m.distance < 50
+    ]
+
+    similarity = min(
+        100,
+        int(len(good_matches) / 5)
+    )
+
+    return {
+        "similarity_score": similarity,
+        "matches": len(good_matches)
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -642,6 +844,44 @@ def _scale(tmpl, target=200):
     span = max(max(xs)-min(xs), max(ys)-min(ys), 1)
     f = target/span
     return [{**m,"x":m["x"]*f,"y":m["y"]*f} for m in tmpl]
+
+#_________________ISO Template export___________________________________________________________________
+def export_iso_template(minutiae):
+    """
+    Simple ISO template export
+    """
+
+    template = bytearray()
+
+    # header
+    template.extend(b'FMR')
+
+    # version
+    template.extend(b' 20')
+
+    # minutiae count
+    template.append(len(minutiae))
+
+    for m in minutiae:
+
+        x = int(m["x"])
+        y = int(m["y"])
+
+        angle = int(
+            (m["direction"] % (2*np.pi))
+            * 180 / np.pi
+        )
+
+        m_type = 1 if m["type"] == "BIF" else 0
+
+        # store as bytes
+        template.extend(x.to_bytes(2, 'big'))
+        template.extend(y.to_bytes(2, 'big'))
+        template.append(angle)
+        template.append(m_type)
+
+    return base64.b64encode(template).decode()
+
 
 def match_templates(t1, t2):
     if not t1 or not t2: return 0.0
@@ -917,6 +1157,189 @@ def process():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
+    
+#--Process Contact End Point──────────────────────────────────────────────────────────────────────────────
+    
+@app.route("/process_contact", methods=["POST"])
+def process_contact():
+    try:
+
+        if "image" not in request.files:
+            return jsonify({
+                "success": False,
+                "error": "No image uploaded"
+            }), 400
+
+        file = request.files["image"]
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        image_path = os.path.join(
+            UPLOAD_FOLDER,
+            f"{ts}_{file.filename}"
+        )
+
+        file.save(image_path)
+
+        # read image
+        image = cv2.imread(image_path)
+
+        if image is None:
+            return jsonify({
+                "success": False,
+                "error": "Invalid image"
+            }), 400
+
+        # preprocessing
+        processed = preprocess_contact_fingerprint(image)
+
+        # minutiae extraction
+        minutiae = detect_minutiae(processed)
+
+        # visualization
+        vis = create_visualization(processed, minutiae)
+
+        return jsonify({
+            "success": True,
+            "minutiae_count": len(minutiae),
+
+            "images": {
+                "processed": img_to_b64(processed),
+                "visualization": img_to_b64(vis)
+            },
+
+            "minutiae": minutiae
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+#--Compare Contact vs Contactless End Point──────────────────────────────────────────────────────────────
+@app.route("/compare_contact", methods=["POST"])
+def compare_contact():
+
+    try:
+
+        if "contact" not in request.files:
+            return jsonify({
+                "success": False,
+                "error": "contact image required"
+            }), 400
+
+        if "contactless" not in request.files:
+            return jsonify({
+                "success": False,
+                "error": "contactless image required"
+            }), 400
+
+        contact_file = request.files["contact"]
+        contactless_file = request.files["contactless"]
+
+        contact_img = cv2.imdecode(
+            np.frombuffer(contact_file.read(), np.uint8),
+            cv2.IMREAD_COLOR
+        )
+
+        contactless_img = cv2.imdecode(
+            np.frombuffer(contactless_file.read(), np.uint8),
+            cv2.IMREAD_COLOR
+        )
+
+        processed_contact = preprocess_contact_fingerprint(
+            contact_img
+        )
+
+        processed_contactless = preprocess_fingerprint(
+            contactless_img
+        )
+
+        comparison = compare_contact_vs_contactless(
+            processed_contact,
+            processed_contactless
+        )
+
+        return jsonify({
+            "success": True,
+            "comparison": comparison
+        })
+
+    except Exception as e:
+
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+#________________exporting Template Endpoints______________________________________________________________________________________________
+@app.route("/export_template", methods=["POST"])
+def export_template():
+
+    try:
+
+        if "image" not in request.files:
+            return jsonify({
+                "success": False,
+                "error": "No image uploaded"
+            }), 400
+
+        file = request.files["image"]
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        image_path = os.path.join(
+            UPLOAD_FOLDER,
+            f"{ts}_{file.filename}"
+        )
+
+        file.save(image_path)
+
+        # read image
+        image = cv2.imread(image_path)
+
+        if image is None:
+            return jsonify({
+                "success": False,
+                "error": "Invalid image"
+            }), 400
+
+        # contactless pipeline
+        cropped, _ = detect_and_crop(image_path)
+
+        preprocessed = preprocess_fingerprint(cropped)
+
+        minutiae = detect_minutiae(preprocessed)
+
+        if len(minutiae) == 0:
+            return jsonify({
+                "success": False,
+                "error": "No minutiae found"
+            }), 400
+
+        # export ISO template
+        iso_template = export_iso_template(minutiae)
+
+        return jsonify({
+            "success": True,
+            "minutiae_count": len(minutiae),
+            "iso_template": iso_template
+        })
+
+    except Exception as e:
+
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 
 # ── List users ────────────────────────────────────────────────────────────────
 @app.route("/users", methods=["GET"])
@@ -963,5 +1386,6 @@ if __name__ == "__main__":
     print("  GET  /users           — List enrolled users")
     print("  GET  /history         — Authentication history")
     print("  GET  /health          — Health check")
+    print("  POST /export_template — Export ISO template")
     print("="*60 + "\n")
     app.run(host="0.0.0.0", port=5001, debug=False)
