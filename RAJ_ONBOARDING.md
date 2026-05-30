@@ -688,17 +688,134 @@ Turn off the backend server (Ctrl+C), then:
 
 ---
 
-## Part 3 — Known Pending Items (Not Your Job to Fix)
+## Part 3 — Pending Features: Your Role
 
-These are gaps that exist in the codebase. Document them in your test report and tag the right person.
+You have two responsibilities here:
 
-| # | Item | Who Needs to Fix | Priority |
-|---|------|-----------------|----------|
-| P1 | QC Tool Tab 1 (Image Quality) — empty placeholder | Ashish | 🟡 Medium |
-| P2 | QC Tool Tab 3 (Contact vs Contactless Comparison) — empty placeholder | Ashish | 🟡 Medium |
-| P3 | ISO template export is simplified (not full ISO 19794-4 spec header) | Ashish | 🟡 Medium |
-| P4 | `/liveness_gesture` needs a hand photo — fingerprint images will return `detected_count: 0` | Nandhini | 🟢 Low (by design) |
-| P5 | QcScreen not registered as a named route in `router.dart` | Atharv | 🟢 Low |
+1. If a feature is missing and **you can write it** — write it, test it, raise a PR to `develop`
+2. If a feature is missing and **you cannot write it** — message the assigned person, give them a 2-day deadline, and track it
+
+---
+
+### P1 — QC Tool Tab 1: Image Quality ❌ MISSING
+
+**Owner:** Ashish  
+**File:** `backend/qctool/app.py` — inside the `with tab1:` block  
+**What it should do:** Upload fingerprint → call `/quality_check` → show blur score, brightness, glare with green/red indicators
+
+**Your action — message Ashish today:**
+
+> "Ashish — QC Tool Tab 1 (Image Quality) is still an empty placeholder in backend/qctool/app.py. It needs to call /quality_check and show blur/brightness/glare results with colour indicators. Please complete this and raise a PR to develop within 2 days."
+
+**If Ashish does not respond in 2 days — implement it yourself.** It is a Streamlit Python task, no ML knowledge needed. Spec:
+
+```python
+# backend/qctool/app.py — inside "with tab1:" block
+# Follow the exact same pattern as render_readiness_tab() in the same file
+
+def render_quality_tab(base_url: str):
+    # 1. File uploader for fingerprint image
+    # 2. Button: "Run quality check"
+    # 3. POST uploaded image to /quality_check
+    # 4. Show passed/failed badge (green if passed, red if failed)
+    # 5. Show blur_score — green if > 50, red if < 50
+    # 6. Show brightness — green if 50-210, red otherwise
+    # 7. Show glare — red "Detected" or green "None"
+    # 8. Show guidance string from response
+    # 9. Show raw JSON in st.expander
+```
+
+Then in `main()` replace:
+```python
+with tab1:
+    st.markdown("<div class='tab-spacer'></div>", unsafe_allow_html=True)
+```
+with:
+```python
+with tab1:
+    render_quality_tab(base_url)
+```
+
+---
+
+### P2 — QC Tool Tab 3: Contact vs Contactless Comparison ❌ MISSING
+
+**Owner:** Ashish  
+**File:** `backend/qctool/app.py` — inside the `with tab3:` block  
+**What it should do:** Two uploaders (contact + contactless) → call `/compare_contact` → show similarity score, match count, side-by-side images
+
+**Your action — message Ashish (combine with P1 message):**
+
+> "Ashish — QC Tool Tab 3 (Contact vs Contactless) is also empty. It needs two image uploaders, calls /compare_contact, and shows similarity_score + matches side by side. Please complete both Tab 1 and Tab 3 in one PR within 2 days."
+
+**If Ashish does not respond in 2 days — implement it yourself.** Spec:
+
+```python
+# backend/qctool/app.py — inside "with tab3:" block
+
+def render_comparison_tab(base_url: str):
+    # 1. Two file uploaders side by side using st.columns
+    #    col1: contact image, col2: contactless image
+    # 2. Button: "Run comparison"
+    # 3. POST both files to /compare_contact
+    #    files = {"contact": (...), "contactless": (...)}
+    # 4. Show comparison.similarity_score as st.progress(score / 100)
+    # 5. Show comparison.matches count
+    # 6. Show both uploaded images side by side
+    # 7. Show raw JSON in st.expander
+```
+
+Then in `main()` replace:
+```python
+with tab3:
+    st.markdown("<div class='tab-spacer'></div>", unsafe_allow_html=True)
+```
+with:
+```python
+with tab3:
+    render_comparison_tab(base_url)
+```
+
+---
+
+### P3 — ISO Template Export: Simplified Header ⚠️ PARTIAL
+
+**Owner:** Ashish  
+**File:** `backend/app.py` → `export_iso_template()`  
+**Issue:** Current header is 6 bytes (`FMR 20`). Full ISO 19794-4 requires a 28-byte header with capture equipment, image dimensions, resolution, and finger count fields.
+
+**Your action — message Ashish:**
+
+> "Ashish — export_iso_template() in backend/app.py uses a simplified 6-byte header. For UIDAI submission it should follow the full ISO 19794-4 format (28-byte header). Reference: https://www.iso.org/standard/50864.html — can you update this?"
+
+**Do not attempt to fix this yourself** — it is a binary format spec task. Just track it.
+
+---
+
+### P4 — QcScreen Not in Router ⚠️ MINOR
+
+**Owner:** Atharv  
+**File:** `lib/router.dart`  
+**Issue:** `QcScreen` is not registered as a named route — only reachable from HomeScreen directly.
+
+**Your action — message Atharv:**
+
+> "Atharv — QcScreen is not in router.dart. Should it have a /qc route? One-line fix if needed."
+
+**You can fix this yourself** if Atharv confirms — it is one line in `lib/router.dart`:
+
+```dart
+GoRoute(path: '/qc', builder: (context, state) => const QcScreen()),
+```
+
+---
+
+### P5 — `/liveness_gesture` Needs a Hand Photo (By Design)
+
+**Owner:** Nandhini — this is not a bug  
+**Note:** MediaPipe detects hand landmarks, not fingerprints. The endpoint needs a photo of a hand showing fingers. Document this clearly in your test report so the team knows what image to use when testing.
+
+
 
 ---
 
