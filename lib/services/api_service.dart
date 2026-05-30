@@ -24,8 +24,13 @@ class ApiService {
     final fd = FormData.fromMap({
       'image': await MultipartFile.fromFile(image.path, filename: 'fp.jpg'),
     });
-    final r = await _dio.post('/quality_check', data: fd);
-    return r.data;
+    try {
+      final r = await _dio.post('/quality_check', data: fd,
+          options: Options(receiveTimeout: const Duration(seconds: 5)));
+      return r.data;
+    } on DioException {
+      return {};
+    }
   }
 
   static Future<Map<String, dynamic>> enroll({
@@ -99,5 +104,46 @@ class ApiService {
   static Future<List<dynamic>> getHistory({String batch = ''}) async {
     final r = await _dio.get('/history', queryParameters: {'batch': batch});
     return r.data['history'] ?? [];
+  }
+
+  static Future<Map<String, dynamic>> readiness(File image) async {
+    final fd = FormData.fromMap({
+      'image': await MultipartFile.fromFile(image.path, filename: 'fp.jpg'),
+    });
+    try {
+      final r = await _dio.post('/readiness', data: fd);
+      return r.data;
+    } on DioException catch (e) {
+      return e.response?.data ?? {'success': false, 'error': e.message};
+    }
+  }
+
+  static Future<Map<String, dynamic>> checkRoi(File image) async {
+    final fd = FormData.fromMap({
+      'image': await MultipartFile.fromFile(image.path, filename: 'fp.jpg'),
+    });
+    try {
+      final r = await _dio.post('/check_roi', data: fd,
+          options: Options(receiveTimeout: const Duration(seconds: 5)));
+      return r.data;
+    } on DioException {
+      return {};
+    }
+  }
+
+  static Future<Map<String, dynamic>> livenessGesture({
+    required File image,
+    required int expectedCount,
+  }) async {
+    final fd = FormData.fromMap({
+      'image': await MultipartFile.fromFile(image.path, filename: 'fp.jpg'),
+      'expected_count': expectedCount.toString(),
+    });
+    try {
+      final r = await _dio.post('/liveness_gesture', data: fd);
+      return r.data;
+    } on DioException catch (e) {
+      return e.response?.data ?? {'success': false, 'error': e.message};
+    }
   }
 }

@@ -482,68 +482,6 @@ def apply_gabor_filters(image):
 
     return enhanced.astype(np.uint8)
 
-#______________________________________________________________________________
-#________Contact fingerprint preprocessing pipeline________
-
-def preprocess_contact_fingerprint(image_bgr):
-    """
-    Contact-based fingerprint preprocessing pipeline.
-    """
-
-    # STEP 1 — grayscale
-    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-
-    # STEP 2 — normalization
-    normalized = cv2.normalize(
-        gray,
-        None,
-        0,
-        255,
-        cv2.NORM_MINMAX
-    )
-
-    # STEP 3 — CLAHE contrast enhancement
-    clahe = cv2.createCLAHE(
-        clipLimit=3.0,
-        tileGridSize=(8, 8)
-    )
-
-    clahe_img = clahe.apply(normalized)
-
-    # STEP 4 — Otsu threshold
-    _, otsu = cv2.threshold(
-        clahe_img,
-        0,
-        255,
-        cv2.THRESH_BINARY + cv2.THRESH_OTSU
-    )
-
-    # STEP 5 — morphology cleaning
-    kernel = np.ones((3, 3), np.uint8)
-
-    morph = cv2.morphologyEx(
-        otsu,
-        cv2.MORPH_OPEN,
-        kernel
-    )
-
-    morph = cv2.morphologyEx(
-        morph,
-        cv2.MORPH_CLOSE,
-        kernel
-    )
-
-    # STEP 6 — ridge enhancement
-    enhanced = apply_gabor_filters(morph)
-
-    # STEP 7 — resize
-    final = cv2.resize(
-        enhanced,
-        (256, 256)
-    )
-
-    return final
-
 def get_segmentation_mask(image_bgr, thresh=0.3):
     interp  = global_models["u2net"]
     in_det  = global_models["u2net_input"]
@@ -1090,9 +1028,10 @@ def health():
         "status": "ok",
         "models": list(global_models.keys()),
         "device": str(DEVICE),
-        "liveness_available":  "liveness"  in global_models,
-        "minutiae_available":  "minutiae"  in global_models,
-        "brightspot_available":"brightspot" in global_models,
+        "liveness_available":   "liveness"   in global_models,
+        "minutiae_available":   "minutiae"   in global_models,
+        "brightspot_available": "brightspot" in global_models,
+        "mediapipe_available":  MEDIAPIPE_AVAILABLE,
     })
 
 # ── Quality check only ────────────────────────────────────────────────────────
