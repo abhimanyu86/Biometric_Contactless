@@ -23,6 +23,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from PIL import Image
 from io import BytesIO
+import struct
 
 warnings.filterwarnings("ignore")
 
@@ -848,19 +849,19 @@ def _scale(tmpl, target=200):
 #_________________ISO Template export___________________________________________________________________
 def export_iso_template(minutiae):
     """
-    Simple ISO template export
+    Simple ISO style fingerprint template export
     """
 
-    template = bytearray()
+    buffer = bytearray()
 
-    # header
-    template.extend(b'FMR')
+    # Header
+    buffer.extend(b'FMR')
 
-    # version
-    template.extend(b' 20')
+    # Version
+    buffer.extend(struct.pack(">H", 1))
 
-    # minutiae count
-    template.append(len(minutiae))
+    # Minutiae Count
+    buffer.extend(struct.pack(">H", len(minutiae)))
 
     for m in minutiae:
 
@@ -868,19 +869,23 @@ def export_iso_template(minutiae):
         y = int(m["y"])
 
         angle = int(
-            (m["direction"] % (2*np.pi))
-            * 180 / np.pi
+            ((m["direction"] + np.pi) /
+            (2 * np.pi)) * 255
         )
 
-        m_type = 1 if m["type"] == "BIF" else 0
+        mtype = 1 if m["type"] == "RIG" else 2
 
-        # store as bytes
-        template.extend(x.to_bytes(2, 'big'))
-        template.extend(y.to_bytes(2, 'big'))
-        template.append(angle)
-        template.append(m_type)
+        buffer.extend(
+            struct.pack(
+                ">HHBB",
+                x,
+                y,
+                angle,
+                mtype
+            )
+        )
 
-    return base64.b64encode(template).decode()
+    return bytes(buffer)
 
 
 def match_templates(t1, t2):
@@ -1277,69 +1282,6 @@ def compare_contact():
             "success": False,
             "error": str(e)
         }), 500
-#________________exporting Template Endpoints______________________________________________________________________________________________
-@app.route("/export_template", methods=["POST"])
-def export_template():
-
-    try:
-
-        if "image" not in request.files:
-            return jsonify({
-                "success": False,
-                "error": "No image uploaded"
-            }), 400
-
-        file = request.files["image"]
-
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        image_path = os.path.join(
-            UPLOAD_FOLDER,
-            f"{ts}_{file.filename}"
-        )
-
-        file.save(image_path)
-
-        # read image
-        image = cv2.imread(image_path)
-
-        if image is None:
-            return jsonify({
-                "success": False,
-                "error": "Invalid image"
-            }), 400
-
-        # contactless pipeline
-        cropped, _ = detect_and_crop(image_path)
-
-        preprocessed = preprocess_fingerprint(cropped)
-
-        minutiae = detect_minutiae(preprocessed)
-
-        if len(minutiae) == 0:
-            return jsonify({
-                "success": False,
-                "error": "No minutiae found"
-            }), 400
-
-        # export ISO template
-        iso_template = export_iso_template(minutiae)
-
-        return jsonify({
-            "success": True,
-            "minutiae_count": len(minutiae),
-            "iso_template": iso_template
-        })
-
-    except Exception as e:
-
-        traceback.print_exc()
-
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
 
 # ── List users ────────────────────────────────────────────────────────────────
 @app.route("/users", methods=["GET"])
@@ -1367,6 +1309,53 @@ def history():
     rows = c.fetchall(); conn.close()
     return jsonify({"history": [{"name":r[0],"uid":r[1],"timestamp":r[2],"confidence":r[3]} for r in rows]})
 
+# ── Export ISO template ───────────────────────────────────────────────────────
+@app.route("/export_template", methods=["POST"])
+def export_template():
+
+    try:
+
+        if "image" not in request.files:
+            return jsonify({
+                "success": False,
+                "error": "image required"
+            }), 400
+
+        f = request.files["image"]
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        path = os.path.join(
+            UPLOAD_FOLDER,
+            f"{ts}_{f.filename}"
+        )
+
+        f.save(path)
+
+        cropped, _ = detect_and_crop(path)
+
+        preprocessed = preprocess_fingerprint(cropped)
+
+        minutiae = detect_minutiae(preprocessed)
+
+        iso_bytes = export_iso_template(minutiae)
+
+        encoded = base64.b64encode(
+            iso_bytes
+        ).decode()
+
+        return jsonify({
+            "success": True,
+            "minutiae_count": len(minutiae),
+            "template": encoded
+        })
+
+    except Exception as e:
+
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN
