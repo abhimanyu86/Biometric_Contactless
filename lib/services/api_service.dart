@@ -130,4 +130,20 @@ class ApiService {
       return {};
     }
   }
+
+  static Future<Map<String, dynamic>> livenessGesture({
+    required File image,
+    required int expectedCount,
+  }) async {
+    final fd = FormData.fromMap({
+      'image': await MultipartFile.fromFile(image.path, filename: 'fp.jpg'),
+      'expected_count': expectedCount.toString(),
+    });
+    try {
+      final r = await _dio.post('/liveness_gesture', data: fd);
+      return r.data;
+    } on DioException catch (e) {
+      return e.response?.data ?? {'success': false, 'error': e.message};
+    }
+  }
 }

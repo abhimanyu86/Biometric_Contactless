@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
 import '../widgets/fingerprint_camera_widget.dart';
 import '../services/api_service.dart';
 import 'screens.dart' show ysShimmer, ysOfflineCard;
+import 'gesture_liveness_screen.dart';
 
 class EnrollScreen extends StatefulWidget {
   const EnrollScreen({super.key});
@@ -19,6 +21,7 @@ class _EnrollScreenState extends State<EnrollScreen> {
   File? _image;
   bool _loading = false;
   Map<String, dynamic>? _result;
+  bool _gesturePassed = false;
 
   @override
   void dispose() { _nameCtrl.dispose(); _uidCtrl.dispose(); _batchCtrl.dispose(); super.dispose(); }
@@ -35,8 +38,9 @@ class _EnrollScreenState extends State<EnrollScreen> {
         batch: _batchCtrl.text.trim(), image: _image!);
       setState(() { _result = r; _loading = false; });
       if (r['success'] == true) {
+        HapticFeedback.heavyImpact();
         _nameCtrl.clear(); _uidCtrl.clear(); _batchCtrl.clear();
-        setState(() => _image = null);
+        setState(() { _image = null; _gesturePassed = false; });
       }
     } catch (e) {
       final isOffline = e.toString().contains('SocketException') ||
@@ -76,9 +80,65 @@ class _EnrollScreenState extends State<EnrollScreen> {
           Text('FINGERPRINT CAPTURE', style: YS.label(11, color: YS.inkLight, w: FontWeight.w700)
               .copyWith(letterSpacing: 1.8)),
           const SizedBox(height: 10),
-          FingerprintCameraWidget(
-            onImageCaptured: (f) => setState(() { _image = f; _result = null; }),
-            disabled: _loading),
+          // Step 1 — Gesture liveness gate
+          if (!_gesturePassed)
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: YS.amberSoft, borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: YS.amber.withValues(alpha: 0.4)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Row(children: [
+                  const Icon(Icons.back_hand_rounded, color: YS.amberDeep, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Liveness Check Required',
+                      style: YS.label(14, color: YS.amberDeep, w: FontWeight.w700)),
+                ]),
+                const SizedBox(height: 6),
+                Text('Complete the finger count challenge before capturing your fingerprint.',
+                    style: YS.label(12, color: YS.amberDeep)),
+                const SizedBox(height: 14),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => GestureLivenessScreen(
+                        onResult: (passed) {
+                          Navigator.of(context).pop();
+                          if (passed) setState(() => _gesturePassed = true);
+                        },
+                      ),
+                    ),
+                  ),
+                  child: const Text('Start Liveness Check'),
+                ),
+              ]),
+            )
+          else
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: YS.greenBg, borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: YS.green.withValues(alpha: 0.3)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.verified_rounded, color: YS.green, size: 16),
+                  const SizedBox(width: 8),
+                  Text('Liveness check passed ✓',
+                      style: YS.label(12, color: YS.green, w: FontWeight.w600)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => setState(() => _gesturePassed = false),
+                    child: Text('Redo', style: YS.label(11, color: YS.green)),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 10),
+              FingerprintCameraWidget(
+                onImageCaptured: (f) => setState(() { _image = f; _result = null; }),
+                disabled: _loading),
+            ]),
           const SizedBox(height: 20),
           if (_loading) ...[ysShimmer(height: 80), const SizedBox(height: 8)],
           if (!_loading && _result != null) ...[const SizedBox(height: 4),

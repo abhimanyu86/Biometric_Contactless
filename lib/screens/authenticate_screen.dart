@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
 import '../widgets/fingerprint_camera_widget.dart';
@@ -31,6 +32,8 @@ class _AuthenticateScreenState extends State<AuthenticateScreen> {
     try {
       final r = await ApiService.authenticate(batch: _batchCtrl.text.trim(), image: image);
       setState(() { _result = r; _loading = false; });
+      if (r['success'] == true) { HapticFeedback.heavyImpact(); }
+      else { HapticFeedback.vibrate(); }
     } catch (e) {
       final isOffline = e.toString().contains('SocketException') ||
           e.toString().contains('Connection refused') ||

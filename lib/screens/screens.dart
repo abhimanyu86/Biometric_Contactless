@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import '../theme/app_theme.dart';
@@ -77,6 +78,8 @@ class _VerifyScreenState extends State<VerifyScreen> {
       final r = await ApiService.verify(
           uid: _uidCtrl.text.trim(), batch: _batchCtrl.text.trim(), image: image);
       setState(() { _result = r; _loading = false; });
+      if (r['matched'] == true) { HapticFeedback.heavyImpact(); }
+      else { HapticFeedback.vibrate(); }
     } catch (e) {
       final msg = e.toString();
       final isOffline = msg.contains('SocketException') ||
