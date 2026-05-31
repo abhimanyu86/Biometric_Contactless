@@ -12,10 +12,11 @@ def b64_to_image(b64_string):
     return Image.open(io.BytesIO(image_bytes))
 
 st.set_page_config(
-    page_title="UIDAI QC Tool",
+    page_title="QC Tool",
     layout="wide"
 )
 
+st.title("Fingerprint QC Tool")
 import requests
 import streamlit as st
 from PIL import Image
@@ -894,7 +895,7 @@ def main():
     )
 
 
-                st.error(data["error"])
+    st.error(data["error"])
 # TAB 3
 with tab3:
 
