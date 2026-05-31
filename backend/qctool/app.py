@@ -16,11 +16,11 @@ def b64_to_image(b64_string):
     return Image.open(io.BytesIO(image_bytes))
 
 st.set_page_config(
-    page_title="UIDAI QC Tool",
+    page_title="QC Tool",
     layout="wide"
 )
 
-st.title("UIDAI Fingerprint QC Tool")
+st.title("Fingerprint QC Tool")
 
 tab1, tab2, tab3 = st.tabs([
     "Image Quality",
