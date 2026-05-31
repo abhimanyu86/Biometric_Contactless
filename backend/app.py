@@ -27,6 +27,26 @@ import struct
 
 warnings.filterwarnings("ignore")
 
+# ── MediaPipe — version-safe import ──────────────────────────────────────────
+# mediapipe 0.10+ moved Hands; this handles both versions + missing install
+MEDIAPIPE_AVAILABLE = False
+_mp_hands = None
+try:
+    import mediapipe as mp
+    if hasattr(mp, 'solutions') and hasattr(mp.solutions, 'hands'):
+        # Legacy API (0.9.x and below)
+        _mp_hands = mp.solutions.hands
+        MEDIAPIPE_AVAILABLE = True
+    else:
+        # Newer 0.10+ — try the compat shim path
+        try:
+            from mediapipe.python.solutions import hands as _mp_hands
+            MEDIAPIPE_AVAILABLE = True
+        except ImportError:
+            MEDIAPIPE_AVAILABLE = False
+except ImportError:
+    MEDIAPIPE_AVAILABLE = False
+
 app = Flask(__name__)
 CORS(app)
 
@@ -463,68 +483,6 @@ def apply_gabor_filters(image):
 
     return enhanced.astype(np.uint8)
 
-#______________________________________________________________________________
-#________Contact fingerprint preprocessing pipeline________
-
-def preprocess_contact_fingerprint(image_bgr):
-    """
-    Contact-based fingerprint preprocessing pipeline.
-    """
-
-    # STEP 1 — grayscale
-    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-
-    # STEP 2 — normalization
-    normalized = cv2.normalize(
-        gray,
-        None,
-        0,
-        255,
-        cv2.NORM_MINMAX
-    )
-
-    # STEP 3 — CLAHE contrast enhancement
-    clahe = cv2.createCLAHE(
-        clipLimit=3.0,
-        tileGridSize=(8, 8)
-    )
-
-    clahe_img = clahe.apply(normalized)
-
-    # STEP 4 — Otsu threshold
-    _, otsu = cv2.threshold(
-        clahe_img,
-        0,
-        255,
-        cv2.THRESH_BINARY + cv2.THRESH_OTSU
-    )
-
-    # STEP 5 — morphology cleaning
-    kernel = np.ones((3, 3), np.uint8)
-
-    morph = cv2.morphologyEx(
-        otsu,
-        cv2.MORPH_OPEN,
-        kernel
-    )
-
-    morph = cv2.morphologyEx(
-        morph,
-        cv2.MORPH_CLOSE,
-        kernel
-    )
-
-    # STEP 6 — ridge enhancement
-    enhanced = apply_gabor_filters(morph)
-
-    # STEP 7 — resize
-    final = cv2.resize(
-        enhanced,
-        (256, 256)
-    )
-
-    return final
-
 def get_segmentation_mask(image_bgr, thresh=0.3):
     interp  = global_models["u2net"]
     in_det  = global_models["u2net_input"]
@@ -918,6 +876,154 @@ def match_templates(t1, t2):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NANDHINI — READINESS SCORE + GESTURE LIVENESS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def compute_readiness_score(image_bgr):
+    blur_result   = check_blur(image_bgr)
+    bright_result = check_brightness(image_bgr)
+    glare_result  = check_glare(image_bgr)
+
+    blur_score  = blur_result["blur_score"]
+    brightness  = bright_result["brightness"]
+    has_glare   = glare_result["has_glare"]
+
+    minutiae_count = 0
+    try:
+        import uuid
+        tmp_path = os.path.join(UPLOAD_FOLDER, f"tmp_readiness_{uuid.uuid4().hex}.png")
+        cv2.imwrite(tmp_path, image_bgr)
+        cropped, _ = detect_and_crop(tmp_path)
+        preprocessed = preprocess_fingerprint(cropped)
+        minutiae = detect_minutiae(preprocessed)
+        minutiae_count = len(minutiae)
+        os.remove(tmp_path)
+    except Exception:
+        pass
+
+    BLUR_MIN, BLUR_MAX = 0.0, 200.0
+    blur_norm = min(max(blur_score, BLUR_MIN), BLUR_MAX) / BLUR_MAX
+
+    BRIGHT_CENTER = 130.0
+    bright_norm = max(0.0, 1.0 - abs(brightness - BRIGHT_CENTER) / BRIGHT_CENTER)
+
+    glare_norm = 0.0 if has_glare else 1.0
+
+    MINUTIAE_MAX = 60
+    minutiae_norm = min(minutiae_count, MINUTIAE_MAX) / MINUTIAE_MAX
+
+    score = (blur_norm * 30) + (bright_norm * 25) + (glare_norm * 20) + (minutiae_norm * 25)
+    score = int(round(min(max(score, 0.0), 100.0)))
+
+    if score >= 80:
+        grade = "Excellent"
+    elif score >= 60:
+        grade = "Good"
+    elif score >= 40:
+        grade = "Marginal"
+    else:
+        grade = "Rejected"
+
+    return {
+        "readiness_score": score,
+        "grade": grade,
+        "breakdown": {
+            "blur":       round(blur_score, 2),
+            "brightness": round(brightness, 2),
+            "glare":      has_glare,
+            "minutiae":   minutiae_count,
+        }
+    }
+
+
+def count_extended_fingers(image_bgr):
+    if not MEDIAPIPE_AVAILABLE or _mp_hands is None:
+        raise RuntimeError("mediapipe is not available. Run: pip install mediapipe")
+
+    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+
+    with _mp_hands.Hands(
+        static_image_mode=True,
+        max_num_hands=1,
+        min_detection_confidence=0.5
+    ) as hands:
+        results = hands.process(image_rgb)
+
+    if not results.multi_hand_landmarks:
+        return 0
+
+    landmarks = results.multi_hand_landmarks[0].landmark
+
+    finger_tips = [4, 8, 12, 16, 20]
+    finger_pips = [3, 6, 10, 14, 18]
+
+    count = 0
+    if landmarks[4].x < landmarks[3].x:
+        count += 1
+    for tip, pip in zip(finger_tips[1:], finger_pips[1:]):
+        if landmarks[tip].y < landmarks[pip].y:
+            count += 1
+    return count
+
+
+# ── /readiness endpoint ───────────────────────────────────────────────────────
+@app.route("/readiness", methods=["POST"])
+def readiness():
+    try:
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+        f  = request.files["image"]
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(UPLOAD_FOLDER, f"{ts}_{f.filename}")
+        f.save(path)
+        img = cv2.imread(path)
+        if img is None:
+            return jsonify({"success": False, "error": "Cannot read image"}), 400
+        result = compute_readiness_score(img)
+        return jsonify({"success": True, **result})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── /liveness_gesture endpoint ────────────────────────────────────────────────
+@app.route("/liveness_gesture", methods=["POST"])
+def liveness_gesture():
+    try:
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+        expected_str = request.form.get("expected_count", "").strip()
+        if not expected_str:
+            return jsonify({"success": False, "error": "expected_count required"}), 400
+        try:
+            expected_count = int(expected_str)
+            if not (1 <= expected_count <= 5):
+                raise ValueError()
+        except ValueError:
+            return jsonify({"success": False, "error": "expected_count must be 1-5"}), 400
+        f  = request.files["image"]
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(UPLOAD_FOLDER, f"{ts}_{f.filename}")
+        f.save(path)
+        img = cv2.imread(path)
+        if img is None:
+            return jsonify({"success": False, "error": "Cannot read image"}), 400
+        detected_count = count_extended_fingers(img)
+        passed = detected_count == expected_count
+        return jsonify({
+            "success":        True,
+            "detected_count": detected_count,
+            "expected_count": expected_count,
+            "passed":         passed,
+        })
+    except RuntimeError as e:
+        return jsonify({"success": False, "error": str(e)}), 501
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # API ENDPOINTS
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -927,9 +1033,10 @@ def health():
         "status": "ok",
         "models": list(global_models.keys()),
         "device": str(DEVICE),
-        "liveness_available":  "liveness"  in global_models,
-        "minutiae_available":  "minutiae"  in global_models,
-        "brightspot_available":"brightspot" in global_models,
+        "liveness_available":   "liveness"   in global_models,
+        "minutiae_available":   "minutiae"   in global_models,
+        "brightspot_available": "brightspot" in global_models,
+        "mediapipe_available":  MEDIAPIPE_AVAILABLE,
     })
 
 # ── Quality check only ────────────────────────────────────────────────────────
@@ -946,6 +1053,74 @@ def quality_check():
         result = quality_gate(img)
         return jsonify({"success": True, **result})
     except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# ── Check ROI ─────────────────────────────────────────────────────────────────
+@app.route("/check_roi", methods=["POST"])
+def check_roi():
+    try:
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+
+        if "finger_detector" not in global_models:
+            global_models["finger_detector"] = YOLO(YOLO_MODEL_PATH, task="detect")
+
+        image_bytes = np.frombuffer(request.files["image"].read(), np.uint8)
+        image_bgr = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
+        if image_bgr is None:
+            return jsonify({"success": False, "error": "cannot read image"}), 400
+
+        results = global_models["finger_detector"](
+            image_bgr,
+            save=False,
+            imgsz=640,
+            conf=0.15,
+            verbose=False,
+        )
+        if not results or len(results[0].boxes) == 0:
+            return jsonify({
+                "success": False,
+                "in_roi": False,
+                "offset_x": 0.0,
+                "offset_y": 0.0,
+                "guidance": "Place finger in view",
+            }), 422
+
+        boxes = results[0].boxes.xyxy.cpu().numpy()
+        confs = results[0].boxes.conf.cpu().numpy()
+        best_idx = int(np.argmax(confs))
+
+        x1, y1, x2, y2 = boxes[best_idx]
+        image_h, image_w = image_bgr.shape[:2]
+
+        finger_center_x = float((x1 + x2) * 0.5)
+        finger_center_y = float((y1 + y2) * 0.5)
+        image_center_x = image_w * 0.5
+        image_center_y = image_h * 0.5
+
+        offset_x = float(finger_center_x - image_center_x)
+        offset_y = float(finger_center_y - image_center_y)
+        tolerance_x = image_w * 0.10
+        tolerance_y = image_h * 0.10
+        in_roi = bool(abs(offset_x) <= tolerance_x and abs(offset_y) <= tolerance_y)
+
+        if in_roi:
+            guidance = "Good - finger centered"
+        elif abs(offset_x) >= abs(offset_y):
+            guidance = "Move right" if offset_x < 0 else "Move left"
+        else:
+            guidance = "Move down" if offset_y < 0 else "Move up"
+
+        return jsonify({
+            "success": True,
+            "in_roi": in_roi,
+            "offset_x": round(offset_x, 2),
+            "offset_y": round(offset_y, 2),
+            "guidance": guidance,
+            "detection_conf": round(float(confs[best_idx]), 4),
+        })
+    except Exception as e:
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 # ── Enroll ────────────────────────────────────────────────────────────────────
