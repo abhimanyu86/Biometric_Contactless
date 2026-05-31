@@ -895,7 +895,7 @@ def main():
     )
 
 
-                st.error(data["error"])
+    st.error(data["error"])
 # TAB 3
 with tab3:
 
