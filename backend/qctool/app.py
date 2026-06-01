@@ -14,7 +14,7 @@ DEFAULT_BASE_URL = "http://127.0.0.1:5001"
 TIMEOUT_SECONDS = 90
 APP_DIR = Path(__file__).resolve().parent
 REPO_ROOT = APP_DIR.parent.parent
-LOGO_PATH = REPO_ROOT / "assets" / "images" / "app_logo.png"
+LOGO_PATH = REPO_ROOT / "assets" / "images" / "logo11.png"
 SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg", "bmp", "webp"]
 
 
