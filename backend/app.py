@@ -16,6 +16,7 @@ import warnings
 import base64
 import traceback
 import json
+import threading
 from datetime import datetime
 import sqlite3
 import matplotlib
@@ -77,6 +78,7 @@ DATABASE = os.path.join(BASE_DIR, "uidai.db")
 
 global_models = {}
 LAST_DEBUG_DATA = None
+u2net_lock = threading.Lock()
 
 print(f"Using device: {DEVICE}")
 
@@ -360,41 +362,99 @@ def load_models():
 # QUALITY CHECKS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def check_blur(image_bgr):
+def _mask_bbox(mask):
+    ys, xs = np.where(mask > 0)
+    if len(xs) == 0 or len(ys) == 0:
+        return None
+    return int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+
+
+def check_blur(image_bgr, mask=None):
     """Laplacian variance blur score. Higher = sharper."""
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-    score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-    return {"blur_score": round(score, 2), "is_blurry": score < 3.0}
+    lap = cv2.Laplacian(gray, cv2.CV_64F)
+    if mask is not None and np.any(mask > 0):
+        score = float(lap[mask > 0].var())
+        method = "finger_roi"
+    else:
+        score = float(lap.var())
+        method = "full_frame"
+    return {"blur_score": round(score, 2), "is_blurry": score < 3.0, "method": method}
 
-def check_brightness(image_bgr):
+def check_brightness(image_bgr, mask=None):
     """Mean luminance check."""
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-    mean = float(gray.mean())
+    if mask is not None and np.any(mask > 0):
+        mean = float(gray[mask > 0].mean())
+        method = "finger_roi"
+    else:
+        mean = float(gray.mean())
+        method = "full_frame"
     return {
         "brightness": round(mean, 2),
         "too_dark":   mean < 50.0,
         "too_bright": mean > 210.0,
+        "method": method,
     }
 
-def check_glare(image_bgr):
+def check_glare(image_bgr, mask=None):
     """Detect glare using bright-spot YOLO model if available, else pixel threshold."""
+    glare_img = image_bgr
+    glare_mask = mask
+    if mask is not None and np.any(mask > 0):
+        bbox = _mask_bbox(mask)
+        if bbox is not None:
+            x1, y1, x2, y2 = bbox
+            glare_img = image_bgr[y1:y2, x1:x2]
+            glare_mask = mask[y1:y2, x1:x2]
+
     if "brightspot" in global_models:
         try:
-            results = global_models["brightspot"](image_bgr, verbose=False)
+            results = global_models["brightspot"](glare_img, verbose=False)
             has_glare = len(results[0].boxes) > 0
             return {"has_glare": has_glare, "method": "model"}
         except Exception:
             pass
     # Fallback: pixel-level overexposure
-    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-    overexposed = float(np.sum(gray > 240)) / gray.size
-    return {"has_glare": overexposed > 0.05, "glare_fraction": round(overexposed, 4), "method": "pixel"}
+    gray = cv2.cvtColor(glare_img, cv2.COLOR_BGR2GRAY)
+    if glare_mask is not None and np.any(glare_mask > 0):
+        overexposed = float(np.sum((gray > 240) & (glare_mask > 0))) / max(1, int(np.sum(glare_mask > 0)))
+        method = "pixel_finger_roi"
+    else:
+        overexposed = float(np.sum(gray > 240)) / gray.size
+        method = "pixel"
+    return {"has_glare": overexposed > 0.05, "glare_fraction": round(overexposed, 4), "method": method}
 
-def quality_gate(image_bgr):
+
+def prepare_quality_roi(image_bgr):
+    meta = {
+        "quality_scope": "full_frame",
+        "finger_detected": False,
+        "detection_conf": None,
+        "segmentation_used": False,
+    }
+    try:
+        cropped_bgr, det_conf = detect_and_crop_image(image_bgr, conf=0.1)
+        meta["quality_scope"] = "finger_roi"
+        meta["finger_detected"] = True
+        meta["detection_conf"] = round(det_conf, 4)
+
+        if "u2net" in global_models:
+            mask = get_segmentation_mask(cropped_bgr)
+            if np.any(mask > 0):
+                meta["segmentation_used"] = True
+                return cropped_bgr, mask.astype(np.uint8), meta
+
+        return cropped_bgr, None, meta
+    except Exception as e:
+        meta["fallback_reason"] = str(e)
+        return image_bgr, None, meta
+
+def quality_gate(image_bgr, mask=None):
     """Run all quality checks and return combined result + guidance message."""
-    blur   = check_blur(image_bgr)
-    bright = check_brightness(image_bgr)
-    glare  = check_glare(image_bgr)
+    blur   = check_blur(image_bgr, mask=mask)
+    bright = check_brightness(image_bgr, mask=mask)
+    glare  = check_glare(image_bgr, mask=mask)
 
     issues = []
     if blur["is_blurry"]:       issues.append("Image is blurry — hold steady")
@@ -416,19 +476,38 @@ def quality_gate(image_bgr):
 # DETECTION + LIVENESS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def detect_and_crop(image_path, conf=0.1):
-    model = YOLO(YOLO_MODEL_PATH, task="detect")
-    img   = cv2.imread(image_path)
-    if img is None:
-        raise ValueError("Cannot read image")
-    results = model(img, save=False, imgsz=800, conf=conf, verbose=False)
+def get_finger_detector():
+    if "finger_detector" not in global_models:
+        global_models["finger_detector"] = YOLO(YOLO_MODEL_PATH, task="detect")
+    return global_models["finger_detector"]
+
+
+def detect_best_finger_box(image_bgr, conf=0.1):
+    model = get_finger_detector()
+    results = model(image_bgr, save=False, imgsz=800, conf=conf, verbose=False)
     if not results or len(results[0].boxes) == 0:
         raise ValueError("No finger detected")
-    boxes  = results[0].boxes.xyxy.cpu().numpy()
-    confs  = results[0].boxes.conf.cpu().numpy()
-    best   = int(np.argmax(confs))
-    x1,y1,x2,y2 = map(int, boxes[best])
-    return img[y1:y2, x1:x2], float(confs[best])
+    boxes = results[0].boxes.xyxy.cpu().numpy()
+    confs = results[0].boxes.conf.cpu().numpy()
+    best = int(np.argmax(confs))
+    x1, y1, x2, y2 = map(int, boxes[best])
+    h, w = image_bgr.shape[:2]
+    x1 = max(0, min(x1, w - 1)); x2 = max(x1 + 1, min(x2, w))
+    y1 = max(0, min(y1, h - 1)); y2 = max(y1 + 1, min(y2, h))
+    return (x1, y1, x2, y2), float(confs[best])
+
+
+def detect_and_crop_image(image_bgr, conf=0.1):
+    bbox, det_conf = detect_best_finger_box(image_bgr, conf=conf)
+    x1, y1, x2, y2 = bbox
+    return image_bgr[y1:y2, x1:x2], det_conf
+
+
+def detect_and_crop(image_path, conf=0.1):
+    img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError("Cannot read image")
+    return detect_and_crop_image(img, conf=conf)
 
 def check_liveness(cropped_bgr):
     if "liveness" not in global_models:
@@ -490,9 +569,13 @@ def get_segmentation_mask(image_bgr, thresh=0.3):
     img_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     h, w    = img_rgb.shape[:2]
     inp     = cv2.resize(img_rgb, (320,320)).astype(np.float32) / 255.0
-    interp.set_tensor(in_det[0]["index"], np.expand_dims(inp, 0))
-    interp.invoke()
-    pred    = interp.get_tensor(out_det[0]["index"])[0,:,:,0]
+    batched = np.expand_dims(inp, 0).copy()
+
+    with u2net_lock:
+        interp.set_tensor(in_det[0]["index"], batched)
+        interp.invoke()
+        pred = interp.get_tensor(out_det[0]["index"])[0, :, :, 0].copy()
+
     prob    = cv2.resize(pred, (w, h))
     mask    = (prob > thresh).astype(np.uint8)
     # convex hull clean
@@ -1050,7 +1133,11 @@ def quality_check():
         path = os.path.join(UPLOAD_FOLDER, f"{ts}_{f.filename}")
         f.save(path)
         img = cv2.imread(path)
-        result = quality_gate(img)
+        if img is None:
+            return jsonify({"success": False, "error": "Cannot read image"}), 400
+        eval_img, eval_mask, quality_meta = prepare_quality_roi(img)
+        result = quality_gate(eval_img, mask=eval_mask)
+        result.update(quality_meta)
         return jsonify({"success": True, **result})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
