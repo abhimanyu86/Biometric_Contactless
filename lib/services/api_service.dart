@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 class ApiService {
-  static String baseUrl = 'http://192.168.101.3:5001';
+  static String baseUrl = 'http://10.173.127.161:5001';
 
   static final Dio _dio = Dio(BaseOptions(
     baseUrl: baseUrl,

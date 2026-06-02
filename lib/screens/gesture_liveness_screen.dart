@@ -45,9 +45,9 @@ class _GestureLivenessScreenState extends State<GestureLivenessScreen> {
     try {
       final cams = await availableCameras();
       if (cams.isEmpty) throw Exception('No camera found');
-      // Prefer front camera for gesture liveness
+      // Use back camera for gesture liveness
       final cam = cams.firstWhere(
-          (c) => c.lensDirection == CameraLensDirection.front,
+          (c) => c.lensDirection == CameraLensDirection.back,
           orElse: () => cams.first);
       _ctrl = CameraController(cam, ResolutionPreset.medium,
           enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);

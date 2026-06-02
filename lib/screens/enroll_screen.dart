@@ -22,6 +22,8 @@ class _EnrollScreenState extends State<EnrollScreen> {
   bool _loading = false;
   Map<String, dynamic>? _result;
   bool _gesturePassed = false;
+  // Gesture liveness is temporarily hidden — set back to true to re-enable.
+  static const bool _livenessEnabled = false;
 
   @override
   void dispose() { _nameCtrl.dispose(); _uidCtrl.dispose(); _batchCtrl.dispose(); super.dispose(); }
@@ -80,8 +82,8 @@ class _EnrollScreenState extends State<EnrollScreen> {
           Text('FINGERPRINT CAPTURE', style: YS.label(11, color: YS.inkLight, w: FontWeight.w700)
               .copyWith(letterSpacing: 1.8)),
           const SizedBox(height: 10),
-          // Step 1 — Gesture liveness gate
-          if (!_gesturePassed)
+          // Step 1 — Gesture liveness gate (hidden while _livenessEnabled is false)
+          if (_livenessEnabled && !_gesturePassed)
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -116,25 +118,27 @@ class _EnrollScreenState extends State<EnrollScreen> {
             )
           else
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: YS.greenBg, borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: YS.green.withValues(alpha: 0.3)),
-                ),
-                child: Row(children: [
-                  const Icon(Icons.verified_rounded, color: YS.green, size: 16),
-                  const SizedBox(width: 8),
-                  Text('Liveness check passed ✓',
-                      style: YS.label(12, color: YS.green, w: FontWeight.w600)),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => setState(() => _gesturePassed = false),
-                    child: Text('Redo', style: YS.label(11, color: YS.green)),
+              if (_livenessEnabled) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: YS.greenBg, borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: YS.green.withValues(alpha: 0.3)),
                   ),
-                ]),
-              ),
-              const SizedBox(height: 10),
+                  child: Row(children: [
+                    const Icon(Icons.verified_rounded, color: YS.green, size: 16),
+                    const SizedBox(width: 8),
+                    Text('Liveness check passed ✓',
+                        style: YS.label(12, color: YS.green, w: FontWeight.w600)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => setState(() => _gesturePassed = false),
+                      child: Text('Redo', style: YS.label(11, color: YS.green)),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 10),
+              ],
               FingerprintCameraWidget(
                 onImageCaptured: (f) => setState(() { _image = f; _result = null; }),
                 disabled: _loading),
