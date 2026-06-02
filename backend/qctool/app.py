@@ -82,6 +82,23 @@ def find_base64_image(payload):
     return None
 
 
+def clean_payload_for_display(payload):
+    if payload is None:
+        return None
+    if isinstance(payload, dict):
+        cleaned = {}
+        for k, v in payload.items():
+            if isinstance(v, str) and (len(v) > 200 or k in ["processed", "visualization", "cropped", "template"]):
+                cleaned[k] = f"<Base64 Truncated, Length: {len(v)}>"
+            else:
+                cleaned[k] = clean_payload_for_display(v)
+        return cleaned
+    elif isinstance(payload, list):
+        return [clean_payload_for_display(item) for item in payload]
+    else:
+        return payload
+
+
 def parse_json_response(response):
     try:
         payload = response.json()
@@ -96,7 +113,7 @@ def parse_json_response(response):
     message = payload.get("error") or payload.get("message") or "Request failed"
     st.error(f"{message} (HTTP {response.status_code})")
     with st.expander("Backend response"):
-        st.json(payload)
+        st.json(clean_payload_for_display(payload))
     return None
 
 
@@ -174,6 +191,49 @@ def metric_card(label: str, value: str, hint: str = "", tone: str = "neutral"):
     )
 
 
+def render_pipeline_breakdown(pipeline_metrics):
+    if not pipeline_metrics or "steps" not in pipeline_metrics:
+        return
+    
+    steps = pipeline_metrics["steps"]
+    inference_sum = pipeline_metrics.get("model_inference_sum_ms", 0.0)
+    overhead = pipeline_metrics.get("system_overhead_ms", 0.0)
+    total_time = pipeline_metrics.get("total_time_ms", 0.0)
+    
+    step_rows = ""
+    for step in steps:
+        step_rows += (
+            f'<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed rgba(184, 120, 0, 0.12);">'
+            f'<span style="font-weight: 600; color: inherit; font-size: 0.92rem;">{step["step"]}</span>'
+            f'<span style="font-family: monospace; font-weight: 800; color: #b87800; font-size: 0.92rem;">{step["time_ms"]:.1f} ms</span>'
+            f'</div>'
+        )
+        
+    html_content = (
+        f'<div style="font-family: \'DM Sans\', sans-serif;">'
+        f'<div style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px;">'
+        f'{step_rows}'
+        f'</div>'
+        f'<div style="background: rgba(184, 120, 0, 0.04); border-radius: 10px; padding: 10px 14px; border: 1px solid rgba(184, 120, 0, 0.08); margin-top: 10px;">'
+        f'<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; padding: 3px 0;">'
+        f'<span style="font-weight: 600; color: var(--muted, #5b6470);">Model-inference sum</span>'
+        f'<span style="font-family: monospace; font-weight: 800; color: inherit;">~{inference_sum/1000.0:.2f} s</span>'
+        f'</div>'
+        f'<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; padding: 3px 0;">'
+        f'<span style="font-weight: 600; color: var(--muted, #5b6470);">System Overhead</span>'
+        f'<span style="font-family: monospace; font-weight: 800; color: #d32f2f;">+{overhead:.1f} ms</span>'
+        f'</div>'
+        f'<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.94rem; font-weight: 800; border-top: 1px solid rgba(184, 120, 0, 0.18); margin-top: 8px; padding-top: 8px;">'
+        f'<span style="color: inherit;">Aggregate projection</span>'
+        f'<span style="font-family: monospace; color: #2e7d32;">~{total_time/1000.0:.2f} s</span>'
+        f'</div>'
+        f'</div>'
+        f'</div>'
+    )
+    with st.expander("⏱️ Latency & Pipeline Breakdown", expanded=False):
+        st.markdown(html_content, unsafe_allow_html=True)
+
+
 def grade_colors(grade: str):
     palette = {
         "Excellent": ("#1e6f45", "#e7f6ed"),
@@ -244,9 +304,14 @@ def inject_styles():
                 visibility: hidden;
             }
 
-            h1, h2, h3, h4, h5, p, span, div, label {
+            h1, h2, h3, h4, h5, p, label {
                 font-family: 'DM Sans', sans-serif !important;
                 letter-spacing: 0;
+            }
+
+            span:not([data-testid*="Icon"]):not([class*="Icon"]):not([class*="Material"]),
+            div:not([data-testid*="Icon"]):not([class*="Icon"]):not([class*="Material"]) {
+                font-family: 'DM Sans', sans-serif !important;
             }
 
             .tool-header {
@@ -601,6 +666,42 @@ def inject_styles():
                 border: 1px solid rgba(184, 120, 0, 0.12);
             }
 
+            /* Premium styled expander overrides for YellowSense theme */
+            [data-testid="stExpander"] {
+                border: 1px solid rgba(184, 120, 0, 0.28) !important;
+                border-radius: 12px !important;
+                background: linear-gradient(135deg, #fffdfa 0%, #fffbf2 100%) !important;
+                box-shadow: 0 6px 18px rgba(110, 79, 19, 0.05) !important;
+                margin-top: 1rem !important;
+                margin-bottom: 1.2rem !important;
+                overflow: hidden !important;
+            }
+
+            [data-testid="stExpander"] summary {
+                background: linear-gradient(135deg, rgba(255, 247, 231, 0.6) 0%, rgba(224, 160, 32, 0.08) 100%) !important;
+                border-bottom: 1px solid rgba(184, 120, 0, 0.08) !important;
+            }
+
+            [data-testid="stExpander"] summary:hover {
+                background: linear-gradient(135deg, rgba(255, 247, 231, 0.9) 0%, rgba(224, 160, 32, 0.15) 100%) !important;
+            }
+
+            [data-testid="stExpander"] summary svg {
+                fill: #b87800 !important;
+                color: #b87800 !important;
+            }
+
+            [data-testid="stExpander"] summary p {
+                font-weight: 800 !important;
+                color: #4f3407 !important;
+                font-family: 'DM Sans', sans-serif !important;
+            }
+
+            [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+                padding: 1.1rem 1.25rem !important;
+                background: #fffdfa !important;
+            }
+
             .app-footer {
                 margin-top: 1.2rem;
                 padding: 0.9rem 0 0.25rem;
@@ -757,6 +858,8 @@ def render_quality_tab(base_url: str):
         with col4:
             metric_card("Glare", "Yes" if glare.get("has_glare") else "No", glare.get("method", "Method unavailable"))
 
+        render_pipeline_breakdown(payload.get("pipeline_metrics"))
+
         detail_col, data_col = st.columns([1, 1.15], gap="large")
         with detail_col:
             st.markdown("#### Quality Flags")
@@ -768,7 +871,7 @@ def render_quality_tab(base_url: str):
                 st.success("No blocking quality issues were reported.")
         with data_col:
             st.markdown("#### Response Payload")
-            st.json(payload)
+            st.json(clean_payload_for_display(payload))
         st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -863,6 +966,8 @@ def render_readiness_tab(base_url: str):
         if score_value is not None:
             st.progress(min(max(score_value / 100.0, 0.0), 1.0), text=f"Overall readiness: {score_value:.1f}/100")
 
+        render_pipeline_breakdown(payload.get("pipeline_metrics"))
+
         chart_col, data_col = st.columns([1.15, 1], gap="large")
         with chart_col:
             st.markdown("#### Quality Breakdown")
@@ -873,7 +978,7 @@ def render_readiness_tab(base_url: str):
                 st.info("No numeric breakdown values were returned.")
         with data_col:
             st.markdown("#### Response Payload")
-            st.json(payload)
+            st.json(clean_payload_for_display(payload))
         st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -927,12 +1032,6 @@ def render_comparison_tab(base_url: str):
             st.markdown("</div>", unsafe_allow_html=True)
             return
 
-        local_metrics = compute_local_similarity(contact, contactless)
-        if local_metrics is None:
-            st.error("One or both uploaded images could not be decoded for local comparison.")
-            st.markdown("</div>", unsafe_allow_html=True)
-            return
-
         with st.spinner("Submitting images to /compare_contact..."):
             try:
                 response = post_named_images(
@@ -951,31 +1050,38 @@ def render_comparison_tab(base_url: str):
             return
 
         comparison = payload.get("comparison", {})
+        ssim_val = comparison.get("ssim", 0.0)
+        orb_val = comparison.get("orb_matches", 0)
+        sift_val = comparison.get("sift_matches")
+        sift_str = "N/A" if sift_val is None else str(sift_val)
+        backend_score = comparison.get("similarity_score", 0.0)
+
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            metric_card("SSIM", f"{local_metrics['ssim']:.4f}", "Structural similarity")
+            metric_card("SSIM", f"{ssim_val:.4f}", "Structural similarity")
         with col2:
-            metric_card("ORB", str(local_metrics["orb_matches"]), "Local matches")
+            metric_card("ORB", str(orb_val), "Local matches")
         with col3:
-            sift_value = local_metrics["sift_matches"]
-            metric_card("SIFT", "N/A" if sift_value is None else str(sift_value), "Local matches")
+            metric_card("SIFT", sift_str, "Local matches")
         with col4:
-            metric_card("Backend", str(comparison.get("similarity_score", "N/A")), "Similarity score")
+            metric_card("Backend", str(backend_score), "Similarity score")
+
+        render_pipeline_breakdown(payload.get("pipeline_metrics"))
 
         chart_col, data_col = st.columns([1.05, 1], gap="large")
         with chart_col:
             st.markdown("#### Metric Summary")
             rows = [
-                {"Metric": "SSIM", "Value": float(local_metrics["ssim"])},
-                {"Metric": "ORB", "Value": float(local_metrics["orb_matches"])},
-                {"Metric": "SIFT", "Value": float(local_metrics["sift_matches"] or 0)},
-                {"Metric": "Backend Score", "Value": float(comparison.get("similarity_score", 0))},
+                {"Metric": "SSIM", "Value": float(ssim_val)},
+                {"Metric": "ORB", "Value": float(orb_val)},
+                {"Metric": "SIFT", "Value": float(sift_val or 0)},
+                {"Metric": "Backend Score", "Value": float(backend_score)},
                 {"Metric": "Backend Matches", "Value": float(comparison.get("matches", 0))},
             ]
             st.bar_chart(rows, x="Metric", y="Value", horizontal=True, color="#D98F0F")
         with data_col:
             st.markdown("#### Response Payload")
-            st.json({"backend": payload, "local_metrics": local_metrics})
+            st.json(clean_payload_for_display(payload))
         st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1040,6 +1146,9 @@ def render_contact_tab(base_url: str):
             return
 
         metric_card("Minutiae", str(payload.get("minutiae_count", "N/A")), "Detected contact fingerprint points")
+
+        render_pipeline_breakdown(payload.get("pipeline_metrics"))
+
         found_image = find_base64_image(payload)
         preview_col, result_col = st.columns([1.12, 1], gap="large")
         with preview_col:
@@ -1053,7 +1162,7 @@ def render_contact_tab(base_url: str):
                 st.markdown("</div>", unsafe_allow_html=True)
         with result_col:
             st.markdown("#### Response Payload")
-            st.json(payload)
+            st.json(clean_payload_for_display(payload))
         st.markdown("</div>", unsafe_allow_html=True)
 
 
