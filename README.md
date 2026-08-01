@@ -1,17 +1,63 @@
-# uidai_app
+# UIDAI Unified App (Single + Slap)
 
-A new Flutter project.
+This branch contains a single Flutter app that supports:
+- Single-finger capture/enroll/auth/verify (backend port 5002)
+- Slap (4-finger) capture/enroll/auth/verify (backend port 5010)
 
-## Getting Started
+The two backends keep separate databases:
+- single: `uidai.db`
+- slap: `slap.db`
 
-This project is a starting point for a Flutter application.
+## Prerequisites
+- Flutter SDK (stable)
+- Android SDK / adb
+- Python 3.10+ (recommended) for the backends
 
-A few resources to get you started if this is your first Flutter project:
+## Run Backends (local)
+From `backend/`:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+PORT=5002 python app.py
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+In another terminal:
+
+```bash
+cd backend
+source venv/bin/activate
+PORT=5010 python slap_app.py
+```
+
+Health checks:
+- http://127.0.0.1:5002/health
+- http://127.0.0.1:5010/health
+
+## Run Flutter App
+
+```bash
+flutter pub get
+flutter run
+```
+
+In the app:
+- Settings → set backend URLs
+  - Single: `http://<YOUR_LAN_IP>:5002`
+  - Slap: `http://<YOUR_LAN_IP>:5010`
+
+## Models (Large Files)
+The backend model files are intentionally not committed to git.
+You must place them under:
+- `backend/models/`
+
+Expected model files:
+- `best-new.pt`
+- `bright_spot_detection.pt`
+- `best_f1.pth`
+- `liveness_model_v3.pt`
+- `zero_dce_model.h5`
+- `u2net_320x320_float32.tflite`
+- `best_float32.tflite`
