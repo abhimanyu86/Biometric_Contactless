@@ -2,16 +2,26 @@ import 'dart:async';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import '../models/capture_mode.dart';
 
 class FingerprintCameraWidget extends StatefulWidget {
   final void Function(File) onImageCaptured;
   final bool disabled;
+  final CaptureMode mode;
+  final String overlayStyle;
+  final String handSide;
   const FingerprintCameraWidget({
     super.key,
     required this.onImageCaptured,
     this.disabled = false,
+    this.mode = CaptureMode.single,
+    this.overlayStyle = 'oval',
+    this.handSide = 'right',
   });
 
   @override
@@ -21,35 +31,49 @@ class FingerprintCameraWidget extends StatefulWidget {
 class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
 
-  // ── Camera ──────────────────────────────────────────────────────────────────
   CameraController? _ctrl;
   bool _initializing = false;
-  bool _live = false;
-  bool _flashing = false;
-  bool _torchOn = false;
+  bool _live         = false;
+  bool _flashing     = false;
+  bool _torchOn      = false;
+  bool _autoFlashOn  = false;
   File? _captured;
   String? _error;
-  double _minZoom = 1.0, _maxZoom = 1.0, _zoom = 1.0;
+  double _minZoom = 1.0, _maxZoom = 1.0, _zoom = 2.0;
   Offset? _focusPt;
   Timer? _focusTimer;
 
-  // ── Auto-capture ─────────────────────────────────────────────────────────────
-  bool _autoCapture = true;
-  Timer? _qualityTimer;
-  bool _polling = false;
-  bool _capturing = false;           // Bug 2+3 fix: dedicated capture lock
-  bool _autoCaptureActive = true;
-  String _roiGuidance = '';          // ROI guidance from /check_roi
-  String _guidance = 'Place finger inside the oval';
-  Color _guidanceColor = Colors.white60;
-  double _qualityScore = 0.0;
-  int _passCount = 0;
-  static const int _passesNeeded = 3;
-  static const Duration _pollInterval = Duration(milliseconds: 900);
+  static const Duration _focusSettleDelay = Duration(milliseconds: 700);
 
-  // ── Scan animation ───────────────────────────────────────────────────────────
+  bool _autoCapture     = true;
+  bool _pollInFlight    = false;
+  bool _capturing       = false;
+  bool _pollActive      = false;
+  String _roiGuidance   = '';
+  String _guidance      = 'Place finger in the oval';
+  Color  _guidanceColor = Colors.white60;
+  double _qualityScore  = 0.0;
+  int    _passCount     = 0;
+
+  DateTime? _lastPassTime;
+  static const Duration _maxPassGap = Duration(seconds: 3);
+
+  int _pollAttempts = 0;
+  static const int _maxPollAttempts = 40;
+
+  static const int _passesNeeded = 2;
+  static const Duration _pollCooldown = Duration(milliseconds: 250);
+
+  File? _lastGoodFrame;
+  bool _tipsVisible = true;
+
+  static const double _autoFlashThreshold = 60.0;
+  static const double _autoFlashRecoverThreshold = 90.0;
+
   late AnimationController _scanCtrl;
-  late Animation<double> _scanAnim;
+  late Animation<double>   _scanAnim;
+
+  bool get _isSlap => widget.mode == CaptureMode.slap;
 
   @override
   void initState() {
@@ -58,53 +82,77 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
     _scanCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1800))
       ..repeat(reverse: true);
-    _scanAnim = Tween<double>(begin: 0, end: 1).animate(
-        CurvedAnimation(parent: _scanCtrl, curve: Curves.easeInOut));
+    _scanAnim = Tween<double>(begin: 0, end: 1)
+        .animate(CurvedAnimation(parent: _scanCtrl, curve: Curves.easeInOut));
+    _guidance = _isSlap ? 'Place your hand in view' : 'Place finger in the oval';
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _focusTimer?.cancel();
-    _qualityTimer?.cancel();
     _scanCtrl.dispose();
+    _killPollLoop();
     _ctrl?.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive) _stopCamera();
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _killPollLoop();
+      _ctrl?.dispose();
+      _ctrl = null;
+      if (mounted) setState(() { _live = false; _torchOn = false; _autoFlashOn = false; });
+    }
   }
 
-  // ── Camera lifecycle ─────────────────────────────────────────────────────────
-
   Future<void> _startCamera() async {
-    if (widget.disabled || _initializing) return;
-    // Bug 6 fix: dispose old controller before creating new one
-    if (_ctrl != null) {
-      await _ctrl!.dispose();
-      _ctrl = null;
-    }
+    if (widget.disabled || _initializing || _live) return;
     setState(() { _initializing = true; _error = null; });
     try {
+      final status = await Permission.camera.status;
+      if (!status.isGranted) {
+        final result = await Permission.camera.request();
+        if (!result.isGranted) {
+          if (mounted) {
+            setState(() {
+              _initializing = false;
+              _error = 'Camera permission denied. Enable it in Settings to continue.';
+            });
+          }
+          return;
+        }
+      }
+
       final cams = await availableCameras();
       if (cams.isEmpty) throw Exception('No camera found');
       final cam = cams.firstWhere(
           (c) => c.lensDirection == CameraLensDirection.back,
           orElse: () => cams.first);
-      _ctrl = CameraController(cam, ResolutionPreset.max,
+
+      await _ctrl?.dispose();
+      _ctrl = CameraController(cam, ResolutionPreset.high,
           enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
       await _ctrl!.initialize();
       await _ctrl!.setFocusMode(FocusMode.auto);
       await _ctrl!.setExposureMode(ExposureMode.auto);
       _minZoom = await _ctrl!.getMinZoomLevel();
       _maxZoom = await _ctrl!.getMaxZoomLevel();
-      _zoom = _minZoom;
+
+      if (_zoom < _minZoom || _zoom > _maxZoom) {
+        _zoom = (2.0).clamp(_minZoom, _maxZoom);
+      }
+      try { await _ctrl!.setZoomLevel(_zoom); } catch (_) {}
       try { await _ctrl!.setFlashMode(FlashMode.off); } catch (_) {}
-      if (mounted) {
-        setState(() { _live = true; _initializing = false; });
-        if (_autoCapture) _startQualityPolling();
+
+      if (!mounted) return;
+      setState(() { _live = true; _initializing = false; });
+
+      if (_autoCapture) {
+        await Future.delayed(_focusSettleDelay);
+        if (mounted && _live) _kickPollLoop();
       }
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _initializing = false; });
@@ -112,17 +160,21 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
   }
 
   Future<void> _stopCamera() async {
-    _stopQualityPolling();
-    if (_torchOn) { try { await _ctrl!.setFlashMode(FlashMode.off); } catch (_) {} }
+    _killPollLoop();
+    if (_torchOn) {
+      try { await _ctrl?.setFlashMode(FlashMode.off); } catch (_) {}
+    }
     await _ctrl?.dispose();
     _ctrl = null;
     if (mounted) {
       setState(() {
-        _live = false; _torchOn = false; _captured = null;
-        _capturing = false; _polling = false; _roiGuidance = '';
-        _guidance = 'Place finger inside the oval';
-        _guidanceColor = Colors.white60;
-        _qualityScore = 0.0; _passCount = 0;
+        _live = false; _torchOn = false; _autoFlashOn = false; _captured = null;
+        _capturing = false; _pollInFlight = false;
+        _roiGuidance = ''; _passCount = 0; _qualityScore = 0.0;
+        _lastGoodFrame = null; _lastPassTime = null; _pollAttempts = 0;
+        _guidance      = _isSlap ? 'Place your hand in view' : 'Place finger in the oval';
+        _guidanceColor = Colors.white60; _focusing = false;
+        _tipsVisible   = true;
       });
     }
   }
@@ -130,19 +182,40 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
   Future<void> _toggleTorch() async {
     if (_ctrl == null) return;
     try {
-      await _ctrl!.setFlashMode(_torchOn ? FlashMode.off : FlashMode.torch);
-      setState(() => _torchOn = !_torchOn);
+      if (_torchOn) {
+        await _ctrl!.setFlashMode(FlashMode.off);
+        if (mounted) setState(() { _torchOn = false; _autoFlashOn = false; });
+      } else {
+        await _ctrl!.setFlashMode(FlashMode.torch);
+        if (mounted) setState(() { _torchOn = true; _autoFlashOn = false; });
+      }
     } catch (_) {}
   }
+
+  Future<void> _setAutoFlash(bool enable) async {
+    if (_ctrl == null || _autoFlashOn == enable) return;
+    try {
+      await _ctrl!.setFlashMode(enable ? FlashMode.torch : FlashMode.off);
+      if (mounted) setState(() {
+        _autoFlashOn = enable;
+        _torchOn = enable;
+      });
+    } catch (_) {}
+  }
+
+  bool _focusing = false;
 
   Future<void> _onTap(TapDownDetails d, BoxConstraints c) async {
     if (_ctrl == null || !_live) return;
     final x = (d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0);
     final y = (d.localPosition.dy / c.maxHeight).clamp(0.0, 1.0);
-    setState(() => _focusPt = d.localPosition);
+
+    if (mounted) setState(() { _focusPt = d.localPosition; _focusing = true; });
+    try { HapticFeedback.lightImpact(); } catch (_) {}
+
     _focusTimer?.cancel();
-    _focusTimer = Timer(const Duration(milliseconds: 1500), () {
-      if (mounted) setState(() => _focusPt = null);
+    _focusTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() { _focusPt = null; _focusing = false; });
     });
     try {
       await _ctrl!.setFocusPoint(Offset(x, y));
@@ -150,133 +223,226 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
     } catch (_) {}
   }
 
-  Future<void> _capture() async {
-    if (_ctrl == null || !_ctrl!.value.isInitialized) return;
-    if (_capturing) return;   // Bug 2 fix: hard lock
+  Future<File?> _stableFile(File src) async {
+    try {
+      final dir  = Directory.systemTemp;
+      final dest = File('${dir.path}/ys_fp_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      return await src.copy(dest.path);
+    } catch (_) {
+      return src;
+    }
+  }
+
+  Future<File> _compressForPoll(File src) async {
+    try {
+      final dest = '${Directory.systemTemp.path}/ys_poll_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final result = await FlutterImageCompress.compressAndGetFile(
+        src.absolute.path,
+        dest,
+        quality: 72,
+        minWidth: 800,
+        minHeight: 600,
+        keepExif: false,
+      );
+      return result != null ? File(result.path) : src;
+    } catch (_) {
+      return src;
+    }
+  }
+
+  Future<void> _commitCapture() async {
+    if (_capturing || _lastGoodFrame == null) return;
     _capturing = true;
-    _stopQualityPolling();
-    await Future.delayed(const Duration(milliseconds: 200));
-    setState(() => _flashing = true);
-    await Future.delayed(const Duration(milliseconds: 120));
+    _killPollLoop();
+    await _setAutoFlash(false);
+
+    final stable = await _stableFile(_lastGoodFrame!);
+    if (stable == null) {
+      if (mounted) setState(() { _capturing = false; _error = 'Capture file missing — retake'; });
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _flashing = true);
+      await Future.delayed(const Duration(milliseconds: 80));
+      if (!mounted) return;
+      setState(() { _flashing = false; _captured = stable; _live = false; });
+    }
+  }
+
+  Future<void> _captureFresh() async {
+    if (_ctrl == null || !_ctrl!.value.isInitialized || _capturing) return;
+    _capturing = true;
+    _killPollLoop();
+    await _setAutoFlash(false);
+    if (mounted) setState(() => _flashing = true);
+    await Future.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
     setState(() => _flashing = false);
     try {
-      final xf = await _ctrl!.takePicture();
-      if (mounted) {
-        setState(() { _captured = File(xf.path); _live = false; });
-      }
+      final xf   = await _ctrl!.takePicture();
+      final stable = await _stableFile(File(xf.path));
+      if (!mounted) return;
+      setState(() { _captured = stable; _live = false; });
     } catch (e) {
       if (mounted) {
         setState(() { _error = 'Capture failed: $e'; _capturing = false; });
-        if (_autoCapture) _startQualityPolling();
+        if (_autoCapture) _kickPollLoop();
       }
     }
-    // Note: _capturing stays true after success intentionally —
-    // reset only on retry/stop so no stray poll can re-trigger
   }
 
-  void _useImage() { if (_captured != null) widget.onImageCaptured(_captured!); }
+  void _useImage() {
+    if (_captured != null) widget.onImageCaptured(_captured!);
+  }
 
   Future<void> _retry() async {
     setState(() {
-      _captured = null; _live = false; _capturing = false; _roiGuidance = '';
-      _passCount = 0; _qualityScore = 0.0;
-      _guidance = 'Place finger inside the oval';
+      _captured = null; _live = false; _capturing = false;
+      _pollInFlight = false; _roiGuidance = ''; _passCount = 0;
+      _qualityScore = 0.0; _lastGoodFrame = null; _lastPassTime = null;
+      _pollAttempts = 0; _error = null; _tipsVisible = true;
+      _guidance      = _isSlap ? 'Place your hand in view' : 'Place finger in the oval';
       _guidanceColor = Colors.white60;
     });
     await _startCamera();
   }
 
-  // ── Quality polling ──────────────────────────────────────────────────────────
-
-  void _startQualityPolling() {
-    _qualityTimer?.cancel();
-    _passCount = 0;
-    _roiGuidance = '';
-    _autoCaptureActive = true;
-    _qualityTimer = Timer.periodic(_pollInterval, (_) => _pollQuality());
+  void _kickPollLoop() {
+    if (_pollActive) return;
+    _pollActive   = true;
+    _pollInFlight = false;
+    _passCount    = 0;
+    _lastGoodFrame = null;
+    _lastPassTime  = null;
+    _pollAttempts  = 0;
+    _roiGuidance   = '';
+    Future.microtask(_pollOnce);
   }
 
-  void _stopQualityPolling() {
-    _autoCaptureActive = false;  // Bug 8 fix: signal in-flight polls to abort
-    _qualityTimer?.cancel();
-    _qualityTimer = null;
-    _polling = false;
+  void _killPollLoop() {
+    _pollActive   = false;
+    _pollInFlight = false;
   }
 
-  Future<void> _pollQuality() async {
-    // Bug 3 fix: check all guards atomically at top
-    if (!_live || _ctrl == null || !_ctrl!.value.isInitialized) return;
-    if (_polling || _capturing || _captured != null) return;
-    if (!_autoCaptureActive) return;  // Bug 8 fix: abort if toggled off
-    _polling = true;
+  Future<void> _pollOnce() async {
+    if (!_pollActive || !_live || _capturing || _captured != null) return;
+    if (_ctrl == null || !_ctrl!.value.isInitialized) return;
+    if (_pollInFlight) return;
+
+    if (_pollAttempts >= _maxPollAttempts) {
+      if (mounted) {
+        setState(() {
+          _guidance      = 'Switch to MANUAL — auto not detecting';
+          _guidanceColor = Colors.white38;
+        });
+      }
+      _pollActive = false;
+      return;
+    }
+
+    _pollInFlight = true;
+    _pollAttempts++;
 
     try {
-      // Bug 1 fix: use low-res controller for polling snapshot
-      // Switch to low res, snap, switch back — avoids blocking main camera
-      final xf = await _ctrl!.takePicture();
+      final xf   = await _ctrl!.takePicture();
       final file = File(xf.path);
 
-      // Bug 5 fix: short timeout for quality poll — don't block for 90s
-      final result = await ApiService.qualityCheck(file)
-          .timeout(const Duration(seconds: 5), onTimeout: () => {});
+      if (!_pollActive || _capturing) return;
 
-      if (!mounted || !_autoCaptureActive || _capturing) return;
+      final pollFile = await _compressForPoll(file);
+
+      final futureOrResult = (_isSlap
+              ? ApiService.slapQualityCheck(pollFile)
+              : ApiService.qualityCheck(pollFile))
+          .timeout(const Duration(seconds: 6), onTimeout: () => <String, dynamic>{});
+      Map<String, dynamic> result = <String, dynamic>{};
+      try {
+        result = await futureOrResult;
+      } catch (_) {
+        result = <String, dynamic>{};
+      }
+
+      if (!mounted || !_pollActive || _capturing) return;
 
       if (result.isEmpty) {
-        // Timeout — don't penalise pass count, just skip this frame
-        _polling = false;
+        _pollAttempts = (_pollAttempts - 1).clamp(0, _maxPollAttempts);
+        _scheduleNextPoll();
         return;
       }
 
-      final passed = result['passed'] == true;
+      final passed  = result['passed'] == true;
       final guidance = result['guidance'] as String? ?? 'Checking...';
 
-      // Bug 4 fix: score reflects all quality dimensions, not just blur
-      final blur       = result['blur']?['is_blurry']    == true ? 0.0 : 1.0;
-      final brightness = result['brightness']?['too_dark']  == true ||
-                         result['brightness']?['too_bright'] == true ? 0.0 : 1.0;
-      final glare      = result['glare']?['has_glare']   == true ? 0.0 : 1.0;
-      final score      = (blur * 0.4 + brightness * 0.35 + glare * 0.25).clamp(0.0, 1.0);
+      final brightnessMap = result['brightness'] as Map<String, dynamic>?;
+      final brightnessVal = (brightnessMap?['brightness'] as num?)?.toDouble() ?? 128.0;
+      final tooDark = brightnessMap?['too_dark'] == true;
 
-      setState(() {
-        _guidance      = passed ? '✓  Good — hold still' : guidance;
-        _guidanceColor = passed ? YS.amber : Colors.orangeAccent;
-        _qualityScore  = score;
-      });
+      if (!_autoFlashOn && tooDark && brightnessVal < _autoFlashThreshold) {
+        await _setAutoFlash(true);
+      } else if (_autoFlashOn && brightnessVal > _autoFlashRecoverThreshold && !tooDark) {
+        await _setAutoFlash(false);
+      }
+
+      final blurOk   = result['blur']?['is_blurry']        != true ? 1.0 : 0.0;
+      final brightOk = (result['brightness']?['too_dark']   == true ||
+                        result['brightness']?['too_bright']  == true) ? 0.0 : 1.0;
+      final glareOk  = result['glare']?['has_glare']        != true ? 1.0 : 0.0;
+      final score    = (blurOk * 0.4 + brightOk * 0.35 + glareOk * 0.25)
+          .clamp(0.0, 1.0);
+
+      final inRoi    = result['in_roi']       as bool?   ?? true;
+      final roiGuide = result['roi_guidance'] as String? ?? '';
+
+      if (mounted) {
+        setState(() {
+          _guidance      = passed ? '✓  Good — hold still' : guidance;
+          _guidanceColor = passed ? YS.amber : Colors.orangeAccent;
+          _qualityScore  = score;
+          _roiGuidance   = (!inRoi && roiGuide.isNotEmpty) ? roiGuide : '';
+        });
+      }
 
       if (passed) {
-        // Also run ROI check in parallel — non-blocking, best effort
-        ApiService.checkRoi(file).then((roi) {
-          if (!mounted || !_autoCaptureActive) return;
-          final roiGuidance = roi['guidance'] as String? ?? '';
-          final inRoi = roi['in_roi'] == true;
-          if (!inRoi && roiGuidance.isNotEmpty) {
-            setState(() => _roiGuidance = roiGuidance);
-          } else {
-            setState(() => _roiGuidance = '');
-          }
-        }).catchError((_) {});
-
+        final now = DateTime.now();
+        if (_lastPassTime != null &&
+            now.difference(_lastPassTime!) > _maxPassGap) {
+          _passCount = 0;
+        }
+        _lastPassTime  = now;
+        _lastGoodFrame = file;
         _passCount++;
-        if (_passCount >= _passesNeeded && _autoCaptureActive && !_capturing) {
-          _polling = false;
-          await _capture();
+        if (_tipsVisible && mounted) setState(() => _tipsVisible = false);
+
+        if (_passCount >= _passesNeeded && _pollActive && !_capturing) {
+          _pollInFlight = false;
+          await _commitCapture();
           return;
         }
       } else {
-        _passCount = 0;
-        setState(() => _roiGuidance = '');
+        _passCount     = 0;
+        _lastGoodFrame = null;
+        _lastPassTime  = null;
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && _pollActive) {
         setState(() {
-          _guidance      = 'Auto-check unavailable — capture manually';
+          _guidance      = 'Auto-check unavailable — tap MANUAL';
           _guidanceColor = Colors.white38;
         });
       }
     } finally {
-      _polling = false;
+      _pollInFlight = false;
     }
+
+    _scheduleNextPoll();
+  }
+
+  void _scheduleNextPoll() {
+    if (!_pollActive) return;
+    Future.delayed(_pollCooldown, () {
+      if (_pollActive && !_capturing && _captured == null) _pollOnce();
+    });
   }
 
   void _toggleAutoCapture() {
@@ -284,20 +450,31 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
     setState(() => _autoCapture = next);
     if (_live) {
       if (next) {
-        _startQualityPolling();
+        _kickPollLoop();
       } else {
-        _stopQualityPolling();
+        _killPollLoop();
         setState(() {
-          _guidance      = 'Place finger inside the oval';
+          _guidance      = _isSlap ? 'Place your hand in view' : 'Place finger in the oval';
           _guidanceColor = Colors.white60;
           _qualityScore  = 0.0;
           _passCount     = 0;
+          _lastGoodFrame = null;
+          _roiGuidance   = '';
         });
       }
     }
   }
 
-  // ── Build ────────────────────────────────────────────────────────────────────
+  IconData _roiGuidanceIcon(String guidance) {
+    final g = guidance.toLowerCase();
+    if (g.contains('left'))  return Icons.arrow_back_rounded;
+    if (g.contains('right')) return Icons.arrow_forward_rounded;
+    if (g.contains('up') || g.contains('higher'))   return Icons.arrow_upward_rounded;
+    if (g.contains('down') || g.contains('lower'))  return Icons.arrow_downward_rounded;
+    if (g.contains('closer') || g.contains('near')) return Icons.zoom_in_rounded;
+    if (g.contains('further') || g.contains('far')) return Icons.zoom_out_rounded;
+    return Icons.open_with_rounded;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -318,61 +495,65 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
         color: YS.card,
         border: Border(bottom: BorderSide(color: YS.stroke))),
     child: Row(children: [
-      Text('FINGERPRINT',
+      Text(_isSlap ? 'SLAP FINGERPRINT' : 'FINGERPRINT',
           style: YS.label(11, color: YS.amber, w: FontWeight.w800)
               .copyWith(letterSpacing: 1.5)),
       const Spacer(),
-      GestureDetector(
-        onTap: _toggleAutoCapture,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: _autoCapture ? YS.amberSoft : YS.cardAlt,
-            border: Border.all(color: _autoCapture ? YS.amber : YS.stroke),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(
-              _autoCapture ? Icons.auto_mode_rounded : Icons.touch_app_rounded,
-              size: 12,
-              color: _autoCapture ? YS.amberDeep : YS.inkLight,
+      if (_live)
+        GestureDetector(
+          onTap: _toggleAutoCapture,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: _autoCapture ? YS.amberSoft : YS.cardAlt,
+              border: Border.all(color: _autoCapture ? YS.amber : YS.stroke),
             ),
-            const SizedBox(width: 4),
-            Text(_autoCapture ? 'AUTO' : 'MANUAL',
-                style: YS.label(9,
-                    color: _autoCapture ? YS.amberDeep : YS.inkLight,
-                    w: FontWeight.w700)),
-          ]),
-        ),
-      ),
-      const SizedBox(width: 8),
-      GestureDetector(
-        onTap: _live ? _toggleTorch : null,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: _torchOn ? YS.amber : YS.stroke),
-            color: _torchOn ? YS.amberSoft : YS.cardAlt,
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(_torchOn ? Icons.flash_on : Icons.flash_off,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(
+                _autoCapture
+                    ? Icons.auto_mode_rounded
+                    : Icons.touch_app_rounded,
                 size: 12,
-                color: _torchOn ? YS.amberDeep : YS.inkLight),
-            const SizedBox(width: 4),
-            Text(_torchOn ? 'ON' : 'OFF',
-                style: YS.label(9,
-                    color: _torchOn ? YS.amberDeep : YS.inkLight,
-                    w: FontWeight.w700)),
-          ]),
+                color: _autoCapture ? YS.amberDeep : YS.inkLight,
+              ),
+              const SizedBox(width: 4),
+              Text(_autoCapture ? 'AUTO' : 'MANUAL',
+                  style: YS.label(9,
+                      color: _autoCapture ? YS.amberDeep : YS.inkLight,
+                      w: FontWeight.w700)),
+            ]),
+          ),
         ),
-      ),
+      if (_live) const SizedBox(width: 8),
+      if (_live)
+        GestureDetector(
+          onTap: _toggleTorch,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _torchOn ? YS.amber : YS.stroke),
+              color: _torchOn ? YS.amberSoft : YS.cardAlt,
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(_torchOn ? Icons.flash_on : Icons.flash_off,
+                  size: 12,
+                  color: _torchOn ? YS.amberDeep : YS.inkLight),
+              const SizedBox(width: 4),
+              Text(_autoFlashOn ? 'AUTO' : _torchOn ? 'ON' : 'OFF',
+                  style: YS.label(9,
+                      color: _torchOn ? YS.amberDeep : YS.inkLight,
+                      w: FontWeight.w700)),
+            ]),
+          ),
+        ),
     ]),
   );
 
-  Widget _viewfinder() => LayoutBuilder(   // Bug 7 fix: use LayoutBuilder not MediaQuery
+  Widget _viewfinder() => LayoutBuilder(
     builder: (context, constraints) {
       final viewW = constraints.maxWidth;
       final viewH = viewW * 4 / 3;
@@ -382,56 +563,57 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
           color: const Color(0xFF1A1A1A),
           child: Stack(fit: StackFit.expand, children: [
 
-            // Camera preview
             if (_live && _ctrl != null && _ctrl!.value.isInitialized)
               GestureDetector(
                 onTapDown: (d) => _onTap(d, constraints),
                 child: CameraPreview(_ctrl!),
               ),
 
-            // Captured image
             if (_captured != null)
               Image.file(_captured!, fit: BoxFit.cover),
 
-            // Idle / initializing
-            if (!_live && _captured == null)
+            if (!_live && !_initializing && _captured == null)
               Container(
                 color: const Color(0xFF1A1A1A),
-                child: _initializing
-                    ? const Center(child: CircularProgressIndicator(
-                        color: YS.amber, strokeWidth: 2))
-                    : GestureDetector(
-                        onTap: _startCamera,
-                        child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 64, height: 64,
-                                decoration: BoxDecoration(
-                                  color: YS.amber.withValues(alpha: 0.15),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.fingerprint,
-                                    size: 36, color: YS.amber),
-                              ),
-                              const SizedBox(height: 12),
-                              Text('TAP TO START CAMERA',
-                                  style: YS.label(11,
-                                      color: Colors.white54,
-                                      w: FontWeight.w600)
-                                      .copyWith(letterSpacing: 1.5)),
-                            ]),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 72, height: 72,
+                        decoration: BoxDecoration(
+                          color: YS.amber.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(_isSlap ? Icons.back_hand_rounded : Icons.fingerprint_rounded,
+                            size: 40, color: YS.amber),
                       ),
+                      const SizedBox(height: 14),
+                      Text('Tap "Start Camera" below',
+                          style: YS.label(12, color: Colors.white38,
+                              w: FontWeight.w500)),
+                    ],
+                  ),
+                ),
               ),
 
-            // Oval overlay
-            CustomPaint(painter: _OverlayPainter(YS.amber)),
+            if (_initializing)
+              Container(
+                color: const Color(0xFF1A1A1A),
+                child: const Center(child: CircularProgressIndicator(
+                    color: YS.amber, strokeWidth: 2)),
+              ),
 
-            // Scan line — Bug 7 fix: uses viewW from LayoutBuilder
-            if (_live && _autoCapture)
+            if ((_live || _captured != null) && widget.overlayStyle != 'none')
+              CustomPaint(
+                  painter: widget.overlayStyle == 'slap'
+                      ? _SlapOverlayPainter(YS.amber, widget.handSide)
+                      : _OverlayPainter(YS.amber)),
+
+            if (_live && _autoCapture && widget.overlayStyle != 'none')
               AnimatedBuilder(
                 animation: _scanAnim,
-                builder: (_, s) => Positioned(
+                builder: (_, __) => Positioned(
                   top: _scanAnim.value * (viewH * 0.6),
                   left: viewW * 0.18,
                   right: viewW * 0.18,
@@ -446,7 +628,6 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
                 ),
               ),
 
-            // Focus ring
             if (_focusPt != null)
               Positioned(
                 left: _focusPt!.dx - 25, top: _focusPt!.dy - 25,
@@ -459,11 +640,9 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
                 ),
               ),
 
-            // Flash
             if (_flashing)
               Container(color: Colors.white.withValues(alpha: 0.8)),
 
-            // Quality bar — auto mode only
             if (_live && _autoCapture)
               Positioned(
                 top: 12, left: 16, right: 16,
@@ -506,34 +685,87 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
                 ]),
               ),
 
-            // Guidance text
-            Positioned(
-              bottom: 14, left: 16, right: 16,
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                if (_roiGuidance.isNotEmpty && _live && _autoCapture)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.open_with_rounded, size: 12, color: Colors.orangeAccent),
-                      const SizedBox(width: 5),
-                      Text(_roiGuidance,
-                          style: YS.label(11, color: Colors.orangeAccent, w: FontWeight.w600)),
-                    ]),
+            if (_autoFlashOn && _live)
+              Positioned(
+                top: 56, left: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: YS.amber.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                Text(
-                  _captured != null ? '✓  Image captured' : _guidance,
-                  textAlign: TextAlign.center,
-                  style: YS.label(11,
-                      color: _captured != null ? YS.amber : _guidanceColor,
-                      w: FontWeight.w500),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                    Icon(Icons.flash_auto, size: 10, color: Colors.black),
+                    SizedBox(width: 3),
+                    Text('AUTO FLASH ON',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.black)),
+                  ]),
                 ),
-              ]),
-            ),
+              ),
+
+            if (_live || _captured != null)
+              Positioned(
+                bottom: 14, left: 16, right: 16,
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+
+                  if (_roiGuidance.isNotEmpty && _live && _autoCapture)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                            color: Colors.orangeAccent.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(
+                          _roiGuidanceIcon(_roiGuidance),
+                          size: 15, color: Colors.orangeAccent),
+                        const SizedBox(width: 6),
+                        Text(_roiGuidance,
+                            style: YS.label(12,
+                                color: Colors.orangeAccent,
+                                w: FontWeight.w700)),
+                      ]),
+                    ),
+
+                  if (_focusing && _live)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const SizedBox(width: 10, height: 10,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: YS.amber)),
+                        const SizedBox(width: 6),
+                        Text('Focusing…',
+                            style: YS.label(11,
+                                color: YS.amber, w: FontWeight.w600)),
+                      ]),
+                    ),
+
+                  if (_live)
+                    Text(
+                      _guidance,
+                      textAlign: TextAlign.center,
+                      style: YS.label(11,
+                          color: _guidanceColor, w: FontWeight.w500),
+                    ),
+                  if (_captured != null)
+                    Text('✓  Image captured',
+                        textAlign: TextAlign.center,
+                        style: YS.label(11,
+                            color: YS.amber, w: FontWeight.w500)),
+                ]),
+              ),
           ]),
         ),
       );
@@ -545,12 +777,11 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
     padding: const EdgeInsets.all(16),
     child: Column(children: [
 
-      // Zoom slider
-      if (_maxZoom > _minZoom && _live)
+      if (_maxZoom > _minZoom + 0.1 && _live)
         Row(children: [
           const Icon(Icons.zoom_out, size: 14, color: YS.inkLight),
           Expanded(child: Slider(
-            value: _zoom,
+            value: _zoom.clamp(_minZoom, _maxZoom.clamp(_minZoom, 5.0)),
             min: _minZoom,
             max: _maxZoom.clamp(_minZoom, 5.0),
             activeColor: YS.amber,
@@ -558,25 +789,83 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
             thumbColor: YS.amber,
             onChanged: (v) async {
               setState(() => _zoom = v);
-              await _ctrl?.setZoomLevel(v);
+              try { await _ctrl?.setZoomLevel(v); } catch (_) {}
             },
           )),
           const Icon(Icons.zoom_in, size: 14, color: YS.inkLight),
+          const SizedBox(width: 4),
+          Text('${_zoom.toStringAsFixed(1)}×',
+              style: YS.label(10, color: YS.inkLight)),
         ]),
 
-      // Idle
-      if (!_live && _captured == null)
-        _btn('Start Camera', _startCamera, true),
+      if (_live && _captured == null && _tipsVisible) ...[
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: YS.cardAlt,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: YS.stroke),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Text('Tips for best capture',
+                    style: YS.label(11, color: YS.inkMid, w: FontWeight.w700)
+                        .copyWith(letterSpacing: 0.3)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => setState(() => _tipsVisible = false),
+                  child: const Icon(Icons.close_rounded, size: 14, color: YS.inkLight),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              _tip(Icons.touch_app_rounded,
+                  'Tap anywhere on the preview to refocus'),
+              _tip(Icons.flash_auto_rounded,
+                  'Low light? Auto-flash activates automatically; tap ⚡ for manual'),
+              _tip(Icons.zoom_in_rounded,
+                  _isSlap
+                      ? 'Use zoom slider so all four fingers fill the slots'
+                      : 'Use zoom slider to fill the oval with your finger — 2–3× works best'),
+              _tip(Icons.pan_tool_rounded,
+                  _isSlap
+                      ? 'Hold your hand steady and flat, fingers slightly apart'
+                      : 'Follow the arrows to centre your finger in the oval'),
+            ],
+          ),
+        ),
+      ],
 
-      // Manual mode — show capture button
+      if (!_live && !_initializing && _captured == null)
+        _btn('Start Camera', _startCamera, true,
+            icon: Icons.camera_alt_rounded),
+
+      if (_initializing)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: YS.amberSoft, borderRadius: BorderRadius.circular(12)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const SizedBox(width: 14, height: 14,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: YS.amberDeep)),
+            const SizedBox(width: 10),
+            Text('Starting camera…',
+                style: YS.label(13, color: YS.amberDeep, w: FontWeight.w600)),
+          ]),
+        ),
+
       if (_live && !_autoCapture)
         Row(children: [
-          Expanded(child: _btn('Capture', _capture, true)),
+          Expanded(child: _btn('Capture', _captureFresh, true,
+              icon: Icons.camera_rounded)),
           const SizedBox(width: 10),
           _btn('✕', _stopCamera, false, square: true),
         ]),
 
-      // Auto mode — show scanning status
       if (_live && _autoCapture)
         Row(children: [
           Expanded(
@@ -587,7 +876,9 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: YS.amber.withValues(alpha: 0.4)),
               ),
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                 SizedBox(
                   width: 14, height: 14,
                   child: CircularProgressIndicator(
@@ -601,9 +892,10 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
                 const SizedBox(width: 8),
                 Text(
                   _passCount > 0
-                      ? 'Hold still... $_passCount/$_passesNeeded'
-                      : 'Scanning quality...',
-                  style: YS.label(13, color: YS.amberDeep, w: FontWeight.w600),
+                      ? 'Hold still… $_passCount/$_passesNeeded'
+                      : 'Scanning quality…',
+                  style: YS.label(13,
+                      color: YS.amberDeep, w: FontWeight.w600),
                 ),
               ]),
             ),
@@ -612,44 +904,67 @@ class _FingerprintCameraWidgetState extends State<FingerprintCameraWidget>
           _btn('✕', _stopCamera, false, square: true),
         ]),
 
-      // Post-capture
       if (_captured != null)
         Row(children: [
-          Expanded(child: _btn('Use This Image', _useImage, true)),
+          Expanded(child: _btn('Use This Image', _useImage, true,
+              icon: Icons.check_rounded)),
           const SizedBox(width: 10),
-          Expanded(child: _btn('Retake', _retry, false)),
+          Expanded(child: _btn('Retake', _retry, false,
+              icon: Icons.refresh_rounded)),
         ]),
 
       if (_error != null) ...[
         const SizedBox(height: 8),
-        Text(_error!, style: const TextStyle(color: YS.red, fontSize: 11)),
+        Text(_error!,
+            style: const TextStyle(color: YS.red, fontSize: 11)),
       ],
     ]),
   );
 
+  Widget _tip(IconData icon, String text) => Padding(
+    padding: const EdgeInsets.only(top: 4),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, size: 12, color: YS.amber),
+      const SizedBox(width: 6),
+      Expanded(child: Text(text,
+          style: YS.label(11, color: YS.inkLight))),
+    ]),
+  );
+
   Widget _btn(String label, VoidCallback onTap, bool primary,
-      {bool square = false}) =>
+      {bool square = false, IconData? icon}) =>
       GestureDetector(
         onTap: widget.disabled ? null : onTap,
         child: Container(
           width: square ? 48 : null,
           padding: EdgeInsets.symmetric(
-              horizontal: square ? 0 : 16, vertical: 14),
+              horizontal: square ? 0 : 14, vertical: 13),
           decoration: BoxDecoration(
             color: primary ? YS.amber : YS.cardAlt,
             borderRadius: BorderRadius.circular(12),
             border: primary ? null : Border.all(color: YS.stroke),
           ),
-          child: Text(label,
-              textAlign: TextAlign.center,
-              style: YS.label(13,
-                  color: primary ? Colors.black : YS.inkMid,
-                  w: FontWeight.w700)),
+          child: square
+              ? Center(child: Text(label,
+                  textAlign: TextAlign.center,
+                  style: YS.label(13,
+                      color: primary ? Colors.black : YS.inkMid,
+                      w: FontWeight.w700)))
+              : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  if (icon != null) ...[
+                    Icon(icon,
+                        size: 14,
+                        color: primary ? Colors.black : YS.inkMid),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(label,
+                      style: YS.label(13,
+                          color: primary ? Colors.black : YS.inkMid,
+                          w: FontWeight.w700)),
+                ]),
         ),
       );
 }
-
-// ── Oval overlay ─────────────────────────────────────────────────────────────
 
 class _OverlayPainter extends CustomPainter {
   final Color color;
@@ -668,17 +983,94 @@ class _OverlayPainter extends CustomPainter {
         ..fillType = PathFillType.evenOdd,
       Paint()..color = const Color(0xFF050505).withValues(alpha: 0.65),
     );
-    canvas.drawOval(oval, Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
-    canvas.drawOval(oval, Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2);
+    canvas.drawOval(
+      oval,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+    canvas.drawOval(
+      oval,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
   }
 
   @override
   bool shouldRepaint(_OverlayPainter old) => old.color != color;
+}
+
+class _SlapOverlayPainter extends CustomPainter {
+  final Color color;
+  final String handSide;
+  const _SlapOverlayPainter(this.color, this.handSide);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final fingerW = w * 0.15;
+    final gap = w * 0.047;
+    final startX = (w - (4 * fingerW + 3 * gap)) / 2;
+    final knuckleY = h * 0.80;
+
+    final lengths = handSide == 'left'
+        ? <double>[0.50, 0.58, 0.52, 0.40]
+        : <double>[0.40, 0.52, 0.58, 0.50];
+
+    final slots = <RRect>[];
+    for (var i = 0; i < 4; i++) {
+      final x = startX + i * (fingerW + gap);
+      final top = knuckleY - lengths[i] * h;
+      slots.add(RRect.fromRectAndCorners(
+        Rect.fromLTRB(x, top, x + fingerW, knuckleY),
+        topLeft: Radius.circular(fingerW * 0.5),
+        topRight: Radius.circular(fingerW * 0.5),
+        bottomLeft: Radius.circular(fingerW * 0.22),
+        bottomRight: Radius.circular(fingerW * 0.22),
+      ));
+    }
+
+    final scrim = Path()..addRect(Rect.fromLTWH(0, 0, w, h));
+    for (final s in slots) {
+      scrim.addRRect(s);
+    }
+    scrim.fillType = PathFillType.evenOdd;
+    canvas.drawPath(
+        scrim, Paint()..color = const Color(0xFF050505).withValues(alpha: 0.62));
+
+    final glow = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+    final line = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.3;
+    for (final s in slots) {
+      canvas.drawRRect(s, glow);
+      canvas.drawRRect(s, line);
+    }
+
+    final tp = TextPainter(
+      text: TextSpan(
+        text: 'Align fingers in the slots',
+        style: TextStyle(
+            color: color.withValues(alpha: 0.9),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.4),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: w);
+    tp.paint(canvas, Offset((w - tp.width) / 2, h * 0.06));
+  }
+
+  @override
+  bool shouldRepaint(_SlapOverlayPainter old) =>
+      old.color != color || old.handSide != handSide;
 }
