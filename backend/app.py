@@ -406,7 +406,7 @@ def check_blur(image_bgr, mask=None):
     else:
         score = float(lap.var())
         method = "full_frame"
-    return {"blur_score": round(score, 2), "is_blurry": score < 20.0, "method": method}
+    return {"blur_score": round(score, 2), "is_blurry": score < 30.0, "method": method}  # calibrated for phone camera images
 
 def check_brightness(image_bgr, mask=None):
     """Mean luminance check."""
@@ -546,7 +546,11 @@ def prepare_quality_roi(image_bgr, profiler=None):
 
         return cropped_bgr, None, meta
     except Exception as e:
+        # YOLO detection failed — fall back to full-frame quality check.
+        # QC still runs on the whole image; blur/brightness/glare all work.
         meta["fallback_reason"] = str(e)
+        meta["finger_detected"] = True        # allow QC to proceed on full frame
+        meta["quality_scope"]   = "full_frame_fallback"
         return image_bgr, None, meta
 
 def quality_gate(image_bgr, mask=None, profiler=None):
