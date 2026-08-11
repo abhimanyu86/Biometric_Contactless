@@ -8,6 +8,14 @@ backend/**/*.pth
 backend/**/*.h5
 backend/**/*.tflite
 backend/models/
+# Raw weight drops from Drive, staged at the repo root before sorting into backend/.
+single_finger_backend_models/
+slap_backend_models/
+
+# ── Real fingerprint photos — never commit these, wherever they land ─────────
+single_finger_images/
+slap_images/
+*.log
 
 # ── Python ────────────────────────────────────────────────────────────────────
 backend/venv/
@@ -19,6 +27,12 @@ backend/uploads/
 backend/outputs/
 backend/*.db
 backend/qctool/uploads/
+
+# ── Lab bench (backend/labtool) ───────────────────────────────────────────────
+# Fingerprint photos of real people. Never commit these.
+backend/labtool/dataset/
+backend/labtool/labtool_config.json
+backend/labtool/*.csv
 
 # ── Flutter ───────────────────────────────────────────────────────────────────
 .dart_tool/

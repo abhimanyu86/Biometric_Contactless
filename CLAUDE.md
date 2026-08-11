@@ -46,6 +46,9 @@ cd backend && python benchmark.py
 
 # Desktop QC tool
 cd backend && streamlit run qctool/app.py
+
+# Lab bench — enrol a dataset, then walk FP-01..FP-08 on a probe photo
+cd backend && streamlit run labtool/app.py
 ```
 
 `backend/start.sh` contains a hardcoded venv path to a former developer's machine and does
@@ -96,6 +99,14 @@ re-fork it. Notes:
 - The `0.25` decision threshold still hardcoded in `slap_app.py` (`MATCH_THRESH`) and the
   single-finger endpoints predates the current scoring and is **not calibrated for it**.
   Recalibrate from a measured FAR/FRR curve before relying on it.
+
+`backend/labtool/` is a Streamlit bench for the acceptance flow: enrol a small dataset
+(name + unique ID per photo), then drop in a probe and watch FP-01 → FP-08 run stage by
+stage, ending in a ranked candidate table and the matched person's details. The ML stages
+go to the backend over HTTP; matching, scoring and FIR decode run in-process against
+`matching.py` and `fir.py`, so it works with no weights and no TensorFlow installed.
+Its gallery is a separate `backend/lab_gallery.db` — `/users` does not return
+`template_json`, so a ranked list can only be built from templates the bench holds itself.
 
 `backend/fir.py` produces ISO/IEC 19794-4 **Finger Image Records** — the format the PoC
 spec requires. Uncompressed records are conformant, so there is no JPEG2000 dependency.
