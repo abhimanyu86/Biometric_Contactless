@@ -104,11 +104,24 @@ def init_db():
             uid         TEXT NOT NULL,
             batch       TEXT NOT NULL,
             template_json TEXT NOT NULL,
-            created_at  TEXT NOT NULL
+            created_at  TEXT NOT NULL,
+            finger_position INTEGER NOT NULL DEFAULT 0
         )
     """)
+
+    # Migrate databases created before finger_position existed. Without this column a
+    # user can only hold one template, which makes the 10-finger gallery that FP-07's
+    # 1:10 requirement describes impossible to build.
+    existing = {row[1] for row in c.execute("PRAGMA table_info(users)")}
+    if "finger_position" not in existing:
+        c.execute("ALTER TABLE users ADD COLUMN finger_position INTEGER NOT NULL DEFAULT 0")
+
+    # Uniqueness is per finger, not per user: one person enrols up to ten templates in
+    # a batch. The old index was on (uid, batch) alone and blocked exactly that.
+    c.execute("DROP INDEX IF EXISTS idx_uid_batch")
     c.execute("""
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_uid_batch ON users(uid, batch)
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_uid_batch_finger
+            ON users(uid, batch, finger_position)
     """)
     c.execute("""
         CREATE TABLE IF NOT EXISTS enrollments (
@@ -639,8 +652,20 @@ def detect_and_crop(image_path, conf=0.1):
     return detect_and_crop_image(img, conf=conf)
 
 def check_liveness(cropped_bgr):
+    # Fail CLOSED. This previously returned is_live=True when the model was absent,
+    # which meant a deployment with missing weights silently accepted every spoof while
+    # still reporting success. A liveness check that cannot run has not passed.
+    #
+    # ALLOW_LIVENESS_BYPASS exists only so the pipeline can be exercised locally without
+    # the weights. It must never be set in a deployed environment.
     if "liveness" not in global_models:
-        return {"is_live": True, "confidence": 1.0, "note": "model_not_loaded"}
+        bypass = os.environ.get("ALLOW_LIVENESS_BYPASS") == "1"
+        return {
+            "is_live": bypass,
+            "confidence": 0.0,
+            "note": "model_not_loaded_bypassed" if bypass else "model_not_loaded",
+            "error": None if bypass else "liveness model unavailable; refusing to pass",
+        }
     img_rgb = cv2.cvtColor(cropped_bgr, cv2.COLOR_BGR2RGB)
     img_r   = cv2.resize(img_rgb, (LIVENESS_IMG_SIZE, LIVENESS_IMG_SIZE))
     inp     = img_r.astype(np.float32) / 255.0
@@ -660,36 +685,6 @@ def check_liveness(cropped_bgr):
 # ══════════════════════════════════════════════════════════════════════════════
 # SEGMENTATION + PREPROCESSING
 # ══════════════════════════════════════════════════════════════════════════════
-
-def apply_gabor_filters(image):
-    """
-    Ridge enhancement using multi-orientation Gabor filters.
-    """
-    enhanced = np.zeros_like(image, dtype=np.float32)
-
-    for theta in np.arange(0, np.pi, np.pi / 8):
-        kernel = cv2.getGaborKernel(
-            (21, 21),
-            sigma=5,
-            theta=theta,
-            lambd=10,
-            gamma=0.5,
-            psi=0,
-            ktype=cv2.CV_32F
-        )
-
-        filtered = cv2.filter2D(image, cv2.CV_32F, kernel)
-        enhanced = np.maximum(enhanced, filtered)
-
-    enhanced = cv2.normalize(
-        enhanced,
-        None,
-        0,
-        255,
-        cv2.NORM_MINMAX
-    )
-
-    return enhanced.astype(np.uint8)
 
 def get_segmentation_mask(image_bgr, thresh=0.3):
     interp  = global_models["u2net"]
@@ -931,67 +926,13 @@ def compare_contact_vs_contactless(img1, img2):
 # TEMPLATE MATCHING  (MCC + relaxation labeling)
 # ══════════════════════════════════════════════════════════════════════════════
 
-import math
+# The matcher lives in matching.py — one implementation shared by app.py, slap_app.py
+# and benchmark.py. It previously existed as three separate copies that had started to
+# drift. See that module for why the edge descriptor is rotation invariant.
+from matching import match_templates  # noqa: F401
 
-K_NEIGHBORS      = 6
-DIST_BIN_SIZE    = 15
-ANGLE_BINS       = 16
-ORIENT_BINS      = 16
-DIST_THRESH      = 1
-ANGLE_THRESH     = 1
-ORIENT_THRESH    = 1
-RELAX_ITER       = 10
-
-def _angle_to_bin(theta, bins):
-    return int((theta % (2*math.pi)) / (2*math.pi) * bins)
-
-def _circ_diff(a, b, bins):
-    d = abs(a-b); return min(d, bins-d)
-
-def _euclidean(p1, p2):
-    return math.sqrt((p1["x"]-p2["x"])**2 + (p1["y"]-p2["y"])**2)
-
-def _compute_edge(p1, p2):
-    dx = p2["x"]-p1["x"]; dy = p2["y"]-p1["y"]
-    dist = math.sqrt(dx*dx+dy*dy)
-    return (int(dist/DIST_BIN_SIZE),
-            _angle_to_bin(math.atan2(dy,dx), ANGLE_BINS),
-            (_angle_to_bin(p2["direction"],ORIENT_BINS) - _angle_to_bin(p1["direction"],ORIENT_BINS)) % ORIENT_BINS)
-
-def _build_graph(tmpl):
-    edges = {}
-    for i in range(len(tmpl)):
-        dists = sorted([((_euclidean(tmpl[i],tmpl[j])),j) for j in range(len(tmpl)) if j!=i])
-        for _,j in dists[:K_NEIGHBORS]:
-            edges[(i,j)] = _compute_edge(tmpl[i], tmpl[j])
-    return edges
-
-def _node_compat(n1, n2):
-    if n1["type"] != n2["type"]: return False
-    if _circ_diff(_angle_to_bin(n1["direction"],ORIENT_BINS),
-                  _angle_to_bin(n2["direction"],ORIENT_BINS), ORIENT_BINS) > ORIENT_THRESH: return False
-    if math.sqrt((n1["x"]-n2["x"])**2+(n1["y"]-n2["y"])**2) > 25: return False
-    return True
-
-def _edge_compat(e1, e2):
-    d1,a1,o1 = e1; d2,a2,o2 = e2
-    if abs(d1-d2)>DIST_THRESH: return 0
-    if _circ_diff(a1,a2,ANGLE_BINS)>ANGLE_THRESH: return 0
-    if _circ_diff(o1,o2,ORIENT_BINS)>ORIENT_THRESH: return 0
-    return math.exp(-(abs(d1-d2)+_circ_diff(a1,a2,ANGLE_BINS)+_circ_diff(o1,o2,ORIENT_BINS)))
-
-def _normalize(tmpl):
-    if not tmpl: return tmpl
-    mx = sum(m["x"] for m in tmpl)/len(tmpl)
-    my = sum(m["y"] for m in tmpl)/len(tmpl)
-    return [{**m,"x":m["x"]-mx,"y":m["y"]-my} for m in tmpl]
-
-def _scale(tmpl, target=200):
-    if not tmpl: return tmpl
-    xs=[m["x"] for m in tmpl]; ys=[m["y"] for m in tmpl]
-    span = max(max(xs)-min(xs), max(ys)-min(ys), 1)
-    f = target/span
-    return [{**m,"x":m["x"]*f,"y":m["y"]*f} for m in tmpl]
+# ISO/IEC 19794-4 finger image records — FP-06.
+import fir
 
 #_________________ISO Template export___________________________________________________________________
 def export_iso_template(minutiae):
@@ -1034,37 +975,6 @@ def export_iso_template(minutiae):
 
     return bytes(buffer)
 
-
-def match_templates(t1, t2):
-    if not t1 or not t2: return 0.0
-    ratio = min(len(t1),len(t2)) / max(len(t1),len(t2))
-    if ratio < 0.45: return 0.0
-    t1 = _scale(_normalize(t1)); t2 = _scale(_normalize(t2))
-    e1 = _build_graph(t1);       e2 = _build_graph(t2)
-    cands = [(i,j) for i,n1 in enumerate(t1) for j,n2 in enumerate(t2) if _node_compat(n1,n2)]
-    min_c = max(4, int(0.15*min(len(t1),len(t2))))
-    if len(cands) < min_c: return 0.0
-    P = {c:1.0 for c in cands}
-    for _ in range(RELAX_ITER):
-        Pn = {}
-        for (i,j) in cands:
-            total = sum(P[(k,l)]*_edge_compat(e1[(i,k)],e2[(j,l)])
-                        for (k,l) in cands if k!=i and l!=j
-                        and (i,k) in e1 and (j,l) in e2)
-            Pn[(i,j)] = total
-        norm = sum(Pn.values())+1e-6
-        P = {k:v/norm for k,v in Pn.items()}
-    used_i=set(); used_j=set(); matches=[]
-    for (i,j),s in sorted(P.items(),key=lambda x:-x[1]):
-        if s<0.001: continue
-        if i not in used_i and j not in used_j:
-            matches.append((i,j,s)); used_i.add(i); used_j.add(j)
-    if not matches: return 0.0
-    score = 2*len(matches)/(len(t1)+len(t2)) * ratio
-    return float(max(0.0, min(1.0, score)))
-
-
-# ══════════════════════════════════════════════════════════════════════════════
 
 # ══════════════════════════════════════════════════════════════════════════════
 # NANDHINI — READINESS SCORE + GESTURE LIVENESS
@@ -1459,6 +1369,18 @@ def enroll():
         if "image" not in request.files:
             return jsonify({"success": False, "error": "image required"}), 400
 
+        # Optional ISO/IEC 19794-4 finger position, 0-10. Defaults to 0 (unknown) so
+        # existing clients keep working; supplying it is what allows one person to
+        # enrol all ten fingers, which FP-07's 1:10 case needs.
+        try:
+            finger_position = int(request.form.get("finger_position", 0))
+        except ValueError:
+            return jsonify({"success": False,
+                            "error": "finger_position must be an integer 0-10"}), 400
+        if not 0 <= finger_position <= 10:
+            return jsonify({"success": False,
+                            "error": "finger_position must be 0-10"}), 400
+
         f  = request.files["image"]
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = os.path.join(UPLOAD_FOLDER, f"{ts}_{f.filename}")
@@ -1489,11 +1411,12 @@ def enroll():
         try:
             c = conn.cursor()
             c.execute("""
-                INSERT INTO users (name, uid, batch, template_json, created_at)
-                VALUES (?,?,?,?,?)
-                ON CONFLICT(uid,batch) DO UPDATE SET
+                INSERT INTO users (name, uid, batch, template_json, created_at, finger_position)
+                VALUES (?,?,?,?,?,?)
+                ON CONFLICT(uid,batch,finger_position) DO UPDATE SET
                     name=excluded.name, template_json=excluded.template_json, created_at=excluded.created_at
-            """, (name, uid, batch, json.dumps(minutiae), datetime.now().isoformat()))
+            """, (name, uid, batch, json.dumps(minutiae), datetime.now().isoformat(),
+                  finger_position))
             user_id = c.lastrowid
             c.execute("INSERT INTO enrollments (user_id,timestamp,minutiae_count) VALUES (?,?,?)",
                       (user_id, datetime.now().isoformat(), len(minutiae)))
@@ -2021,6 +1944,79 @@ def export_template():
             "error": str(e)
         }), 500
 
+
+# ── FP-06: ISO/IEC 19794-4 Finger Image Record ────────────────────────────────
+@app.route("/export_fir", methods=["POST"])
+def export_fir():
+    """
+    Produce an ISO/IEC 19794-4 FIR for a captured finger.
+
+    This is the template format FP-06 asks for. /export_template above emits a minutiae
+    record, which is a different standard — both are kept because the minutiae record
+    is still what the matcher consumes.
+
+    Form fields: image (file), optional finger_position (0-10), optional source_dpi.
+    """
+    try:
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+
+        try:
+            finger_position = int(request.form.get("finger_position", 0))
+        except ValueError:
+            return jsonify({"success": False,
+                            "error": "finger_position must be an integer 0-10"}), 400
+
+        source_dpi = request.form.get("source_dpi")
+        source_dpi = int(source_dpi) if source_dpi else None
+
+        f  = request.files["image"]
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(UPLOAD_FOLDER, f"{ts}_{f.filename}")
+        f.save(path)
+
+        raw = cv2.imread(path)
+        if raw is None:
+            return jsonify({"success": False, "error": "Cannot read image"}), 400
+
+        profiler = PipelineProfiler()
+
+        cropped, _   = detect_and_crop(path)
+        preprocessed = preprocess_fingerprint(cropped)
+
+        t_norm = time.perf_counter()
+        normalised, norm_info = fir.normalize_to_500dpi(preprocessed,
+                                                        source_dpi=source_dpi)
+        profiler.record_step("500 DPI Normalisation", t_norm)
+
+        t_enc = time.perf_counter()
+        record = fir.encode_fir(normalised, finger_position=finger_position)
+        profiler.record_step("FIR Encoding", t_enc)
+
+        # Decode our own output before returning it. A record that will not parse is
+        # worse than no record, and this is cheap next to the pipeline above.
+        parsed = fir.decode_fir(record)
+
+        return jsonify({
+            "success":         True,
+            "fir_base64":      base64.b64encode(record).decode(),
+            "record_bytes":    len(record),
+            "finger_position": finger_position,
+            "width":           parsed["finger"]["width"],
+            "height":          parsed["finger"]["height"],
+            "resolution_dpi":  parsed["header"]["image_resolution_x"],
+            "compression":     "uncompressed",
+            "normalisation":   norm_info,
+            "pipeline_metrics": profiler.get_metrics(),
+        })
+
+    except fir.FIRError as e:
+        return jsonify({"success": False, "error": "FIR encoding failed: %s" % e}), 422
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2039,7 +2035,8 @@ if __name__ == "__main__":
     print("  GET  /users           — List enrolled users")
     print("  GET  /history         — Authentication history")
     print("  GET  /health          — Health check")
-    print("  POST /export_template — Export ISO template")
+    print("  POST /export_template — Export ISO 19794-2 minutiae record")
+    print("  POST /export_fir      — Export ISO 19794-4 finger image record (FP-06)")
     print("="*60 + "\n")
     port = int(os.environ.get("PORT", 5002))
     app.run(host="0.0.0.0", port=port, debug=False)

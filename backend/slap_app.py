@@ -294,143 +294,15 @@ def enroll_slap_endpoint():
 # ══════════════════════════════════════════════════════════════════════════════
 # MATCHING ENGINE (imported + MINUTIAE MCC Graph + Relaxation Labeling)
 # ══════════════════════════════════════════════════════════════════════════════
-import math
 import traceback
 
-K_NEIGHBORS   = 6
-DIST_BIN_SIZE = 15
-ANGLE_BINS    = 16
-ORIENT_BINS   = 16
-DIST_THRESH   = 1
-ANGLE_THRESH  = 1
-ORIENT_THRESH = 1
-RELAX_ITER    = 10
+# Shared matcher — see matching.py. Slap matching runs the same algorithm as the
+# single-finger path, per finger position, so the two cannot drift apart again.
+from matching import match_templates  # noqa: F401
+
 MATCH_THRESH  = 0.25
 
 
-def _angle_to_bin(theta, bins):
-    return int((theta % (2 * math.pi)) / (2 * math.pi) * bins)
-
-
-def _circ_diff(a, b, bins):
-    d = abs(a - b)
-    return min(d, bins - d)
-
-
-def _euclidean(p1, p2):
-    return math.sqrt((p1["x"] - p2["x"]) ** 2 + (p1["y"] - p2["y"]) ** 2)
-
-
-def _compute_edge(p1, p2):
-    dx = p2["x"] - p1["x"]
-    dy = p2["y"] - p1["y"]
-    dist = math.sqrt(dx * dx + dy * dy)
-    return (
-        int(dist / DIST_BIN_SIZE),
-        _angle_to_bin(math.atan2(dy, dx), ANGLE_BINS),
-        (_angle_to_bin(p2["direction"], ORIENT_BINS) -
-         _angle_to_bin(p1["direction"], ORIENT_BINS)) % ORIENT_BINS,
-    )
-
-
-def _build_graph(tmpl):
-    edges = {}
-    for i in range(len(tmpl)):
-        dists = sorted([((_euclidean(tmpl[i], tmpl[j])), j)
-                        for j in range(len(tmpl)) if j != i])
-        for _, j in dists[:K_NEIGHBORS]:
-            edges[(i, j)] = _compute_edge(tmpl[i], tmpl[j])
-    return edges
-
-
-def _node_compat(n1, n2):
-    if n1["type"] != n2["type"]:
-        return False
-    if _circ_diff(_angle_to_bin(n1["direction"], ORIENT_BINS),
-                  _angle_to_bin(n2["direction"], ORIENT_BINS),
-                  ORIENT_BINS) > ORIENT_THRESH:
-        return False
-    if math.sqrt((n1["x"] - n2["x"]) ** 2 + (n1["y"] - n2["y"]) ** 2) > 25:
-        return False
-    return True
-
-
-def _edge_compat(e1, e2):
-    d1, a1, o1 = e1
-    d2, a2, o2 = e2
-    if abs(d1 - d2) > DIST_THRESH:
-        return 0
-    if _circ_diff(a1, a2, ANGLE_BINS) > ANGLE_THRESH:
-        return 0
-    if _circ_diff(o1, o2, ORIENT_BINS) > ORIENT_THRESH:
-        return 0
-    return math.exp(
-        -(abs(d1 - d2) + _circ_diff(a1, a2, ANGLE_BINS) +
-          _circ_diff(o1, o2, ORIENT_BINS)))
-
-
-def _normalize(tmpl):
-    if not tmpl:
-        return tmpl
-    mx = sum(m["x"] for m in tmpl) / len(tmpl)
-    my = sum(m["y"] for m in tmpl) / len(tmpl)
-    return [{**m, "x": m["x"] - mx, "y": m["y"] - my} for m in tmpl]
-
-
-def _scale(tmpl, target=200):
-    if not tmpl:
-        return tmpl
-    xs = [m["x"] for m in tmpl]
-    ys = [m["y"] for m in tmpl]
-    span = max(max(xs) - min(xs), max(ys) - min(ys), 1)
-    f = target / span
-    return [{**m, "x": m["x"] * f, "y": m["y"] * f} for m in tmpl]
-
-
-def match_templates(t1, t2):
-    """MCC graph + relaxation labeling minutiae matcher (0.0–1.0)."""
-    if not t1 or not t2:
-        return 0.0
-    ratio = min(len(t1), len(t2)) / max(len(t1), len(t2))
-    if ratio < 0.45:
-        return 0.0
-    t1 = _scale(_normalize(t1))
-    t2 = _scale(_normalize(t2))
-    e1 = _build_graph(t1)
-    e2 = _build_graph(t2)
-    cands = [(i, j) for i, n1 in enumerate(t1)
-             for j, n2 in enumerate(t2) if _node_compat(n1, n2)]
-    min_c = max(4, int(0.15 * min(len(t1), len(t2))))
-    if len(cands) < min_c:
-        return 0.0
-    P = {c: 1.0 for c in cands}
-    for _ in range(RELAX_ITER):
-        Pn = {}
-        for (i, j) in cands:
-            total = sum(
-                P[(k, l)] * _edge_compat(e1[(i, k)], e2[(j, l)])
-                for (k, l) in cands if k != i and l != j
-                and (i, k) in e1 and (j, l) in e2)
-            Pn[(i, j)] = total
-        norm = sum(Pn.values()) + 1e-6
-        P = {k: v / norm for k, v in Pn.items()}
-    used_i = set()
-    used_j = set()
-    matches = []
-    for (i, j), s in sorted(P.items(), key=lambda x: -x[1]):
-        if s < 0.001:
-            continue
-        if i not in used_i and j not in used_j:
-            matches.append((i, j, s))
-            used_i.add(i)
-            used_j.add(j)
-    if not matches:
-        return 0.0
-    score = 2 * len(matches) / (len(t1) + len(t2)) * ratio
-    return float(max(0.0, min(1.0, score)))
-
-
-# ── slap_auth_history table ──────────────────────────────────────────────────
 def init_slap_history_db():
     con = sqlite3.connect(SLAP_DB)
     con.execute(
