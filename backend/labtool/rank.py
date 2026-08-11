@@ -18,27 +18,29 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from matching import match_templates  # noqa: E402
+from matching import match_templates, list_algorithms, algorithm_display_name, ALGORITHM_INFO  # noqa: E402
 
 DEFAULT_THRESHOLD = 0.25  # what app.py:1484 and slap_app.py hardcode today
+DEFAULT_ALGORITHM = "modern"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1:N IDENTIFICATION
 # ══════════════════════════════════════════════════════════════════════════════
 
-def identify(probe_minutiae: list, entries: list, legacy: bool = False) -> list:
+def identify(probe_minutiae: list, entries: list, algorithm: str = DEFAULT_ALGORITHM) -> list:
     """
     Score a probe against every gallery entry, best first.
 
     `entries` are rows from gallery.list_templates(). Returns one dict per entry with
     the score attached, so the UI can show the whole candidate list and the rank-1
-    margin rather than just the winner.
+    margin rather than just the winner. `algorithm` selects which matching.py scorer
+    runs — see matching.list_algorithms() for the registered names.
     """
     ranked = []
     for entry in entries:
         gallery_minutiae = entry.get("minutiae") or []
-        score = float(match_templates(probe_minutiae, gallery_minutiae, legacy=legacy))
+        score = float(match_templates(probe_minutiae, gallery_minutiae, algorithm=algorithm))
         ranked.append({
             "template_id": entry.get("id"),
             "uid": entry.get("uid", ""),
@@ -73,7 +75,7 @@ def decide(ranked: list, threshold: float) -> dict:
 # PAIR SCORING — genuine vs impostor
 # ══════════════════════════════════════════════════════════════════════════════
 
-def gallery_pairs(entries: list, legacy: bool = False) -> dict:
+def gallery_pairs(entries: list, algorithm: str = DEFAULT_ALGORITHM) -> dict:
     """
     Score every gallery pair once, split by whether the two entries are the same person.
 
@@ -84,7 +86,7 @@ def gallery_pairs(entries: list, legacy: bool = False) -> dict:
     genuine, impostor = [], []
     for a, b in itertools.combinations(entries, 2):
         score = float(match_templates(a.get("minutiae") or [],
-                                      b.get("minutiae") or [], legacy=legacy))
+                                      b.get("minutiae") or [], algorithm=algorithm))
         row = {
             "a_name": a.get("name", ""), "a_uid": a.get("uid", ""),
             "b_name": b.get("name", ""), "b_uid": b.get("uid", ""),
@@ -97,6 +99,68 @@ def gallery_pairs(entries: list, legacy: bool = False) -> dict:
             row["kind"] = "impostor"
             impostor.append(row)
     return {"genuine": genuine, "impostor": impostor}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CROSS-ALGORITHM COMPARISON — the actual bake-off. Minutiae extraction (the slow,
+# network-bound part) happens once; scoring against every registered algorithm is
+# local numpy/scipy work, cheap enough to always do all of them rather than one at a
+# time. See MATCHING_ALGORITHMS.md for what each registered name is.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def identify_all_algorithms(probe_minutiae: list, entries: list, threshold: float) -> list:
+    """
+    Run identify()+decide() once per registered algorithm against the same probe and
+    gallery scope. One row per algorithm — the comparison view for a single capture.
+    """
+    rows = []
+    for algo in list_algorithms():
+        ranked = identify(probe_minutiae, entries, algorithm=algo) if probe_minutiae else []
+        verdict = decide(ranked, threshold)
+        info = ALGORITHM_INFO.get(algo, {})
+        rows.append({
+            "algorithm": algo,
+            "code": info.get("code", ""),
+            "label": info.get("label", algo),
+            "display": algorithm_display_name(algo),
+            "top1_name": verdict["top1"]["name"] if verdict["top1"] else "",
+            "top1_uid": verdict["top1"]["uid"] if verdict["top1"] else "",
+            "top1_score": verdict["top1_score"],
+            "top2_score": verdict["top2_score"],
+            "margin": verdict["margin"],
+            "decision": verdict["decision"],
+        })
+    rows.sort(key=lambda r: r["code"])
+    return rows
+
+
+def gallery_pairs_all_algorithms(entries: list) -> list:
+    """
+    Score every gallery pair under every registered algorithm — the live version of
+    MATCHING_ALGORITHMS.md's results table, computed against whatever gallery is
+    actually enrolled right now instead of synthetic data.
+    """
+    rows = []
+    for algo in list_algorithms():
+        pairs = gallery_pairs(entries, algorithm=algo)
+        impostor = [p["score"] for p in pairs["impostor"]]
+        genuine = [p["score"] for p in pairs["genuine"]]
+        info = ALGORITHM_INFO.get(algo, {})
+        rows.append({
+            "algorithm": algo,
+            "code": info.get("code", ""),
+            "label": info.get("label", algo),
+            "display": algorithm_display_name(algo),
+            "impostor_count": len(impostor),
+            "impostor_mean": (sum(impostor) / len(impostor)) if impostor else None,
+            "impostor_max": max(impostor) if impostor else None,
+            "genuine_count": len(genuine),
+            "genuine_mean": (sum(genuine) / len(genuine)) if genuine else None,
+            "separation": ((sum(genuine) / len(genuine)) - (sum(impostor) / len(impostor)))
+                          if genuine and impostor else None,
+        })
+    rows.sort(key=lambda r: r["code"])
+    return rows
 
 
 def genuine_scores_from_probes(probes: list) -> list:
