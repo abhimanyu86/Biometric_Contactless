@@ -12,7 +12,9 @@ backend/models/
 # ── Python ────────────────────────────────────────────────────────────────────
 backend/venv/
 backend/__pycache__/
+backend/**/__pycache__/
 backend/*.pyc
+backend/**/*.pyc
 backend/uploads/
 backend/outputs/
 backend/*.db

@@ -52,6 +52,8 @@ class BenchmarkConfig:
     seed: int = RANDOM_SEED
 
 
+from matching import match_templates as shared_match
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("benchmark")
 
@@ -140,17 +142,15 @@ def scale_template(template, target=200):
 
 
 def prepare_template(template):
-    """Normalize, scale, and precompute reusable template features."""
-    prepared = scale_template(normalize_template(template))
-    for point in prepared:
-        point["direction_bin"] = angle_to_bin(point["direction"], ORIENT_BINS)
-    graph, neighbors = build_graph(prepared)
-    return {
-        "template": prepared,
-        "graph": graph,
-        "neighbors": neighbors,
-        "size": len(prepared),
-    }
+    """
+    Wrap a raw template for the pair lookup.
+
+    Normalisation, scaling and graph construction used to happen here and be cached.
+    They now live inside matching.match_templates, so that this benchmark measures
+    exactly the matcher that runs in production rather than a second implementation
+    of it that could drift.
+    """
+    return {"template": template, "size": len(template)}
 
 
 def pair_count(size):
@@ -300,50 +300,8 @@ def sample_impostor_pairs(users, grouped, target_count, total_pairs, rng):
 
 
 def match_templates(left, right):
-    t1 = left["template"]
-    t2 = right["template"]
-    if not t1 or not t2:
-        return 0.0
-
-    ratio = min(left["size"], right["size"]) / max(left["size"], right["size"])
-    if ratio < 0.45:
-        return 0.0
-
-    candidates, links = build_candidate_links(left, right)
-    min_candidates = max(4, int(0.15 * min(left["size"], right["size"])))
-    if len(candidates) < min_candidates:
-        return 0.0
-
-    probs = [1.0] * len(candidates)
-    for _ in range(RELAX_ITER):
-        updated = [0.0] * len(candidates)
-        for idx, src_links in enumerate(links):
-            total = 0.0
-            for neighbor_idx, weight in src_links:
-                total += probs[neighbor_idx] * weight
-            updated[idx] = total
-        norm = sum(updated)
-        if norm <= 1e-6:
-            return 0.0
-        inv_norm = 1.0 / norm
-        probs = [value * inv_norm for value in updated]
-
-    used_i = set()
-    used_j = set()
-    matches = 0
-    for score, (i, j) in sorted(zip(probs, candidates), reverse=True):
-        if score < 0.001:
-            continue
-        if i not in used_i and j not in used_j:
-            matches += 1
-            used_i.add(i)
-            used_j.add(j)
-
-    if matches == 0:
-        return 0.0
-
-    score = 2 * matches / (left["size"] + right["size"]) * ratio
-    return float(max(0.0, min(1.0, score)))
+    """Delegates to the shared matcher so benchmark numbers reflect production."""
+    return shared_match(left["template"], right["template"])
 
 
 def parse_template(raw):
