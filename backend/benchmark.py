@@ -50,9 +50,11 @@ class BenchmarkConfig:
     max_genuine_pairs: int = DEFAULT_MAX_GENUINE_PAIRS
     max_impostor_pairs: int = DEFAULT_MAX_IMPOSTOR_PAIRS
     seed: int = RANDOM_SEED
+    algorithm: str = "modern"
 
 
 from matching import match_templates as shared_match
+from matching import list_algorithms as shared_algorithms
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("benchmark")
@@ -299,9 +301,9 @@ def sample_impostor_pairs(users, grouped, target_count, total_pairs, rng):
     return sampled
 
 
-def match_templates(left, right):
+def match_templates(left, right, algorithm="modern"):
     """Delegates to the shared matcher so benchmark numbers reflect production."""
-    return shared_match(left["template"], right["template"])
+    return shared_match(left["template"], right["template"], algorithm=algorithm)
 
 
 def parse_template(raw):
@@ -412,8 +414,9 @@ def build_pairs(users, max_genuine_pairs, max_impostor_pairs, seed):
     return genuine_pairs, impostor_pairs, total_impostor_pairs, total_genuine_pairs, mode
 
 
-def score_pairs(pairs, prepared_lookup):
-    return [match_templates(prepared_lookup[left_id], prepared_lookup[right_id]) for left_id, right_id in pairs]
+def score_pairs(pairs, prepared_lookup, algorithm="modern"):
+    return [match_templates(prepared_lookup[left_id], prepared_lookup[right_id], algorithm=algorithm)
+            for left_id, right_id in pairs]
 
 
 def compute_metrics(genuine_scores, impostor_scores):
@@ -552,11 +555,18 @@ def parse_args():
         default=RANDOM_SEED,
         help="Random seed used for pair sampling.",
     )
+    parser.add_argument(
+        "--algorithm",
+        choices=shared_algorithms(),
+        default="modern",
+        help="Which registered matching.py algorithm to benchmark.",
+    )
     args = parser.parse_args()
     return BenchmarkConfig(
         max_genuine_pairs=args.max_genuine_pairs,
         max_impostor_pairs=args.max_impostor_pairs,
         seed=args.seed,
+        algorithm=args.algorithm,
     )
 
 
@@ -579,13 +589,14 @@ def main():
         )
         prepared_lookup = {user["id"]: user["prepared"] for user in users}
 
-        genuine_scores = score_pairs(genuine_pairs, prepared_lookup)
-        impostor_scores = score_pairs(impostor_pairs, prepared_lookup)
+        genuine_scores = score_pairs(genuine_pairs, prepared_lookup, algorithm=config.algorithm)
+        impostor_scores = score_pairs(impostor_pairs, prepared_lookup, algorithm=config.algorithm)
         rows, eer_row = compute_metrics(genuine_scores, impostor_scores)
 
         write_csv(rows, eer_row)
         write_plot(rows, eer_row)
 
+        logger.info(f"Algorithm: {config.algorithm}")
         logger.info(f"Loaded users: {len(users)}")
         logger.info(f"Benchmark mode: {mode}")
         logger.info(f"Genuine pairs used: {len(genuine_pairs)}")

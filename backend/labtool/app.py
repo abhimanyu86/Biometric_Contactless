@@ -462,7 +462,7 @@ def _render_gallery_grid() -> None:
 # TAB 2 — IDENTIFY (1:N)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def render_identify_tab(base_url: str, threshold: float, legacy: bool) -> None:
+def render_identify_tab(base_url: str, threshold: float, algorithm: str) -> None:
     st.subheader("Identify a probe photo")
     st.caption(
         "Upload a fresh capture of someone already in the gallery. Every FP stage runs in "
@@ -501,7 +501,7 @@ def render_identify_tab(base_url: str, threshold: float, legacy: bool) -> None:
             run = stages.run_capture_pipeline(base_url, image_bytes,
                                               finger_position=finger_position,
                                               filename=probe.name)
-            ranked = rank.identify(run.minutiae, scoped, legacy=legacy) if run.minutiae else []
+            ranked = rank.identify(run.minutiae, scoped, algorithm=algorithm) if run.minutiae else []
             verdict = rank.decide(ranked, threshold)
 
         probe_sha = gallery.sha256_bytes(image_bytes)
@@ -516,7 +516,7 @@ def render_identify_tab(base_url: str, threshold: float, legacy: bool) -> None:
         st.session_state["identify"] = {
             "run": run, "ranked": ranked, "verdict": verdict,
             "probe_id": probe_id, "probe_sha": probe_sha,
-            "threshold": threshold, "scoped": len(scoped),
+            "threshold": threshold, "scoped": len(scoped), "scoped_entries": scoped,
             "duplicate": gallery.find_template_by_sha(probe_sha),
         }
 
@@ -656,6 +656,10 @@ def _render_identify_result(state: dict, subjects: list) -> None:
     st.markdown("")
     render_timing_panel(run)
 
+    # ── Compare every registered algorithm on this exact capture ─────────────
+    st.divider()
+    _render_algorithm_comparison(run, state["scoped_entries"], threshold)
+
     # ── Ground truth capture — this is what feeds the calibration tab ────────
     st.divider()
     st.markdown("**Record the true identity**")
@@ -675,6 +679,64 @@ def _render_identify_result(state: dict, subjects: list) -> None:
             true_uid = choice.rsplit("(", 1)[-1].rstrip(")")
         gallery.set_probe_truth(state["probe_id"], true_uid)
         st.success("Recorded. The Metrics tab now includes this run.")
+
+
+def _render_algorithm_comparison(run: stages.PipelineRun, scoped_entries: list,
+                                 threshold: float) -> None:
+    st.markdown("**Compare every algorithm on this capture**")
+    st.caption(
+        "The slow part — capture, liveness, preprocessing, minutiae extraction — only "
+        "ran once, above. Scoring the same probe against every registered algorithm is "
+        "local matching.py work and costs milliseconds each, so it always runs, not just "
+        "when you ask for it."
+    )
+
+    if not run.minutiae:
+        st.info("No probe minutiae to compare — the pipeline didn't reach FP-07.")
+        return
+
+    rows = rank.identify_all_algorithms(run.minutiae, scoped_entries, threshold)
+    frame = pd.DataFrame([{
+        "Algorithm": r["display"],
+        "Rank-1": r["top1_name"] or "—",
+        "Score": r["top1_score"],
+        "Margin": r["margin"],
+        "Decision": "accept" if r["decision"] == "match" else "reject",
+    } for r in rows])
+
+    table_col, chart_col = st.columns([3, 2])
+    with table_col:
+        st.dataframe(
+            frame, width="stretch", hide_index=True,
+            column_config={"Score": st.column_config.ProgressColumn(
+                "Score", format="%.4f", min_value=0.0, max_value=1.0)},
+        )
+    with chart_col:
+        bars = (alt.Chart(frame)
+                .mark_bar()
+                .encode(x=alt.X("Score:Q", scale=alt.Scale(domain=[0, 1])),
+                        y=alt.Y("Algorithm:N", sort="-x", title=None),
+                        color=alt.Color("Decision:N",
+                                        scale=alt.Scale(domain=["accept", "reject"],
+                                                        range=["#1e6f45", "#c9ccd1"]),
+                                        legend=None),
+                        tooltip=["Algorithm", "Rank-1", "Score", "Margin", "Decision"]))
+        rule = (alt.Chart(pd.DataFrame({"t": [threshold]}))
+                .mark_rule(color="#b33a33", strokeDash=[5, 4])
+                .encode(x="t:Q"))
+        st.altair_chart(bars + rule, use_container_width=True)
+
+    agree = len({r["top1_uid"] for r in rows if r["top1_uid"]})
+    if agree > 1:
+        styles.note(
+            f"The {len(rows)} algorithms don't agree on rank-1 — {agree} different people "
+            f"were picked as the best candidate. Worth a closer look at which one is right "
+            f"before trusting any single algorithm's answer here."
+        )
+    elif agree == 1 and rows:
+        winner = next((r["top1_name"] for r in rows if r["top1_name"]), "")
+        if winner:
+            styles.note(f"Every algorithm that found a candidate agrees on rank-1: {winner}.")
 
 
 def _render_identity_card(verdict: dict, run: stages.PipelineRun) -> None:
@@ -712,11 +774,75 @@ def _render_identity_card(verdict: dict, run: stages.PipelineRun) -> None:
         )
 
 
+def _render_leaderboard(entries: list) -> None:
+    """
+    Every registered algorithm scored against the same real gallery, side by side —
+    the live version of MATCHING_ALGORITHMS.md's results table, computed from your
+    actual enrolled photos instead of synthetic data. This is the bake-off.
+    """
+    st.markdown("**Leaderboard — every algorithm on this gallery**")
+    rows = rank.gallery_pairs_all_algorithms(entries)
+    frame = pd.DataFrame([{
+        "Algorithm": r["display"],
+        "Impostor pairs": r["impostor_count"],
+        "Mean impostor score": r["impostor_mean"],
+        "Highest impostor score": r["impostor_max"],
+        "Genuine pairs": r["genuine_count"],
+        "Mean genuine score": r["genuine_mean"],
+        "Separation": r["separation"],
+    } for r in rows])
+
+    has_genuine = any(r["genuine_count"] for r in rows)
+    sort_col = "Separation" if has_genuine else "Mean impostor score"
+    ascending = not has_genuine  # lower mean-impostor is "better" absent genuine data
+    display_frame = frame.sort_values(sort_col, ascending=ascending, na_position="last")
+
+    st.dataframe(
+        display_frame, width="stretch", hide_index=True,
+        column_config={
+            "Mean impostor score": st.column_config.NumberColumn(format="%.4f"),
+            "Highest impostor score": st.column_config.NumberColumn(format="%.4f"),
+            "Mean genuine score": st.column_config.NumberColumn(format="%.4f"),
+            "Separation": st.column_config.NumberColumn(format="%.4f"),
+        },
+    )
+
+    if has_genuine:
+        chart_frame = frame.dropna(subset=["Separation"])
+        bars = (alt.Chart(chart_frame)
+                .mark_bar()
+                .encode(x=alt.X("Separation:Q"),
+                        y=alt.Y("Algorithm:N", sort="-x", title=None),
+                        color=alt.value("#1e6f45"),
+                        tooltip=["Algorithm", "Mean genuine score",
+                                "Mean impostor score", "Separation"]))
+        st.altair_chart(bars, use_container_width=True)
+        st.caption("Separation = mean genuine score − mean impostor score. Higher is "
+                   "better — more room between the two distributions to place a threshold.")
+    else:
+        chart_frame = frame.dropna(subset=["Mean impostor score"])
+        bars = (alt.Chart(chart_frame)
+                .mark_bar()
+                .encode(x=alt.X("Mean impostor score:Q"),
+                        y=alt.Y("Algorithm:N", sort="x", title=None),
+                        color=alt.value("#c9ccd1"),
+                        tooltip=["Algorithm", "Impostor pairs", "Mean impostor score",
+                                "Highest impostor score"]))
+        st.altair_chart(bars, use_container_width=True)
+        styles.note(
+            "No genuine comparisons yet, so this ranks by mean impostor score only "
+            "(lower is better — it means less overlap with where a genuine match should "
+            "land). That's a proxy, not the real answer: an algorithm can suppress "
+            "impostor scores by also suppressing genuine ones. Tag some Identify-tab "
+            "probes with their true identity to get a real, separation-based ranking."
+        )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 3 — METRICS & CALIBRATION
 # ══════════════════════════════════════════════════════════════════════════════
 
-def render_metrics_tab(threshold: float, legacy: bool) -> None:
+def render_metrics_tab(threshold: float, algorithm: str) -> None:
     st.subheader("Score separation and threshold calibration")
 
     entries = gallery.list_templates()
@@ -727,7 +853,7 @@ def render_metrics_tab(threshold: float, legacy: bool) -> None:
         st.info("Enrol at least two subjects to see any score separation.")
         return
 
-    pairs = rank.gallery_pairs(entries, legacy=legacy)
+    pairs = rank.gallery_pairs(entries, algorithm=algorithm)
     genuine_probe = rank.genuine_scores_from_probes(
         [p for p in labelled if p["true_uid"] != "__none__"])
     impostor_probe = rank.impostor_scores_from_probes(labelled)
@@ -760,6 +886,13 @@ def render_metrics_tab(threshold: float, legacy: bool) -> None:
             "produce impostor pairs — run a probe on the Identify tab and tag it with the "
             "true identity to start building the genuine side."
         )
+
+    st.divider()
+    _render_leaderboard(entries)
+    st.divider()
+
+    st.markdown(f"**Deep dive: {rank.algorithm_display_name(algorithm)}**")
+    st.caption("Pick a different algorithm in the sidebar to change everything below.")
 
     sweep = rank.sweep(genuine_scores, impostor_scores)
 
@@ -991,25 +1124,34 @@ def main() -> None:
         st.session_state["base_url"] = client.load_base_url()
     base_url = st.session_state["base_url"]
 
+    algorithms = rank.list_algorithms()
+
     with st.sidebar:
         st.markdown("### Bench settings")
         threshold = st.slider("Decision threshold", 0.0, 1.0, rank.DEFAULT_THRESHOLD, 0.01,
                               help="0.25 is what app.py hardcodes today. The Metrics tab "
                                    "recommends a calibrated value.")
-        legacy = st.checkbox("Use the legacy matcher", value=False,
-                             help="Reproduces the pre-rotation-invariant algorithm exactly, "
-                                  "so before/after can be compared on identical data.")
+        algorithm = st.selectbox(
+            "Matching algorithm", algorithms,
+            index=algorithms.index(rank.DEFAULT_ALGORITHM)
+                  if rank.DEFAULT_ALGORITHM in algorithms else 0,
+            format_func=rank.algorithm_display_name,
+            help="Every algorithm registered in matching.py's _ALGORITHMS dict shows up "
+                 "here automatically, numbered algorithm000+ — see MATCHING_ALGORITHMS.md "
+                 "for what each one is. This is the algorithm every other control on this "
+                 "page uses; the Identify and Metrics tabs also let you compare all of "
+                 "them at once regardless of this selection.")
         st.divider()
         st.caption(f"Backend: {base_url}")
         st.caption(f"Gallery: {gallery.DB_PATH.name}")
-        if legacy:
+        if algorithm == "legacy":
             st.warning("Legacy matcher active — absolute-space edges, scores 0 on a "
                        "rotated finger.")
 
     styles.header(
         "SITAA Lab Bench",
         "Contactless fingerprint pipeline · FP-01 → FP-08",
-        f"matcher: {'legacy' if legacy else 'rotation-invariant'} · threshold {threshold:.2f}",
+        f"matcher: {algorithm} · threshold {threshold:.2f}",
     )
 
     dataset_tab, identify_tab, metrics_tab, server_tab = st.tabs(
@@ -1018,9 +1160,9 @@ def main() -> None:
     with dataset_tab:
         render_dataset_tab(base_url)
     with identify_tab:
-        render_identify_tab(base_url, threshold, legacy)
+        render_identify_tab(base_url, threshold, algorithm)
     with metrics_tab:
-        render_metrics_tab(threshold, legacy)
+        render_metrics_tab(threshold, algorithm)
     with server_tab:
         render_server_tab(base_url)
 

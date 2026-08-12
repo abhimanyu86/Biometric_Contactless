@@ -1,18 +1,25 @@
 """
-Fingerprint minutiae matching — MCC-style graph matching with relaxation labeling.
+Fingerprint minutiae matching — kNN graph matching with relaxation labeling.
 
 Single source of truth. Previously this algorithm existed as three separate copies
 (app.py, slap_app.py, benchmark.py) which had already begun to drift apart.
 
-Two modes:
+Despite past references to this as "MCC-style", it is not the Minutia Cylinder-Code
+algorithm (Cappelli, Ferrara & Maltoni, 2010) — no cylinder structures are built. It's
+a k-nearest-neighbour graph with relaxation labeling, closer in spirit to Ratha/Jain-
+style local-structure matching. See MATCHING_ALGORITHMS.md for a real MCC candidate
+and other alternatives under evaluation.
 
-  legacy=True   Byte-for-byte behaviour of the original app.py matcher. Kept so that
-                before/after numbers can be measured on identical data.
+match_templates(t1, t2, algorithm=...) dispatches by name through the _ALGORITHMS
+registry at the bottom of this file. Two algorithms are registered today:
 
-  legacy=False  Default. Fixes the defect that made the original score 0% TAR on real
-                phone captures: the edge descriptor was measured in absolute image
-                space, so rotating the finger between enrol and authenticate shifted
-                every edge angle and destroyed the match.
+  "legacy"   Byte-for-byte behaviour of the original app.py matcher. Kept so that
+             before/after numbers can be measured on identical data.
+
+  "modern"   Default. Fixes the defect that made the original score 0% TAR on real
+             phone captures: the edge descriptor was measured in absolute image
+             space, so rotating the finger between enrol and authenticate shifted
+             every edge angle and destroyed the match.
 
 What changed in the default path
 --------------------------------
@@ -337,16 +344,165 @@ def _match_modern(t1, t2):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# ALGORITHM CANDIDATE — Hungarian / optimal assignment (algorithm002)
+#
+# Identical front end to _match_modern: same normalisation, same rotation-invariant
+# scaling, same k-NN graph, same relaxation labeling. The only thing that changes is
+# the last step — _match_modern assigns pairs greedily (highest relaxation probability
+# first, skip anything whose row or column is already taken); this instead poses it as
+# a proper assignment problem and solves it exactly with the Hungarian algorithm
+# (scipy.optimize.linear_sum_assignment), so a locally-attractive greedy pick can no
+# longer block a globally better configuration. Isolating this one change is the
+# point — everything downstream (the coverage/confidence score) is left identical to
+# _match_modern so any score difference between the two is attributable to the
+# assignment step alone, not to a different scoring formula too.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _match_hungarian(t1, t2):
+    from scipy.optimize import linear_sum_assignment
+
+    ratio = min(len(t1), len(t2)) / max(len(t1), len(t2))
+    if ratio < MIN_COUNT_RATIO:
+        return 0.0
+
+    a = _scale(_normalize(t1))
+    b = _scale(_normalize(t2))
+    e1, nb1 = _build_graph(a)
+    e2, nb2 = _build_graph(b)
+
+    candidates = []
+    index = {}
+    for i, n1 in enumerate(a):
+        for j, n2 in enumerate(b):
+            if n1["type"] != n2["type"]:
+                continue
+            index[(i, j)] = len(candidates)
+            candidates.append((i, j))
+
+    if len(candidates) < max(4, int(0.15 * min(len(a), len(b)))):
+        return 0.0
+
+    links = [[] for _ in candidates]
+    for idx, (i, j) in enumerate(candidates):
+        for k in nb1[i]:
+            edge_a = e1.get((i, k))
+            if edge_a is None:
+                continue
+            for l in nb2[j]:
+                target = index.get((k, l))
+                if target is None:
+                    continue
+                w = _edge_compat(edge_a, e2.get((j, l)))
+                if w:
+                    links[idx].append((target, w))
+
+    probs = [1.0] * len(candidates)
+    for _ in range(RELAX_ITER):
+        updated = [0.0] * len(candidates)
+        for idx, src in enumerate(links):
+            updated[idx] = sum(probs[t] * w for t, w in src)
+        peak = max(updated)
+        if peak <= 1e-9:
+            return 0.0
+        probs = [v / peak for v in updated]
+
+    # Dense reward matrix over every (i, j) slot, not just type-matching candidates —
+    # linear_sum_assignment requires a complete matrix and will otherwise have nothing
+    # to assign a row to. Non-candidate cells default to 0 reward, so the solver only
+    # ever prefers them when a row genuinely has no better option; the ASSIGN_MIN_PROB
+    # filter below then drops anything it was forced into rather than actually matched.
+    reward = np.zeros((len(a), len(b)), dtype=float)
+    for (i, j), prob in zip(candidates, probs):
+        reward[i, j] = prob
+
+    row_idx, col_idx = linear_sum_assignment(reward, maximize=True)
+    assigned = sorted(
+        (reward[i, j] for i, j in zip(row_idx, col_idx) if reward[i, j] >= ASSIGN_MIN_PROB),
+        reverse=True,
+    )
+    if not assigned:
+        return 0.0
+
+    coverage = len(assigned) / min(len(a), len(b))
+    top_n = max(MIN_TOP_N, int(TOP_N_FRACTION * len(assigned)))
+    confidence = sum(assigned[:top_n]) / min(top_n, len(assigned))
+
+    score = (COVERAGE_WEIGHT * coverage + (1 - COVERAGE_WEIGHT) * confidence) * ratio
+    return float(max(0.0, min(1.0, score)))
+
+
+from algorithms import (  # noqa: E402
+    mcc_cylinder, delaunay, ransac_alignment, jiang_yau, bozorth3_style, networkx_graph,
+    ransac_similarity,
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PUBLIC API
 # ══════════════════════════════════════════════════════════════════════════════
 
-def match_templates(t1, t2, legacy=False):
+# Name -> scoring function. Every algorithm branch in the matching-algorithm bake-off
+# adds one function above (or one backend/algorithms/<name>.py module) and one line
+# here — nothing else in this file changes, and callers select it by name instead of
+# by editing an ever-growing chain of booleans.
+_ALGORITHMS = {
+    "legacy": _match_legacy,
+    "modern": _match_modern,
+    "hungarian_assignment": _match_hungarian,
+    "mcc_cylinder": mcc_cylinder.match,
+    "delaunay": delaunay.match,
+    "ransac_alignment": ransac_alignment.match,
+    "jiang_yau": jiang_yau.match,
+    "bozorth3_style": bozorth3_style.match,
+    "networkx_graph": networkx_graph.match,
+    "ransac_similarity": ransac_similarity.match,
+}
+
+# Sequential codes + human labels for the bake-off (see MATCHING_ALGORITHMS.md).
+# algorithm000 is the pre-rotation-fix historical baseline; algorithm001 is what's
+# actually in production today; algorithm002+ are the candidates under evaluation.
+# This is a *display* layer only — the dict keys above stay descriptive so the code
+# itself stays readable; UIs and reports should read through algorithm_display_name()
+# rather than showing raw keys.
+ALGORITHM_INFO = {
+    "legacy":               {"code": "algorithm000", "label": "Legacy (pre-rotation-fix baseline)"},
+    "modern":                {"code": "algorithm001", "label": "Modern (current production default)"},
+    "hungarian_assignment":  {"code": "algorithm002", "label": "Hungarian / optimal assignment"},
+    "mcc_cylinder":          {"code": "algorithm003", "label": "Minutia Cylinder-Code (MCC)"},
+    "delaunay":              {"code": "algorithm004", "label": "Delaunay triangulation matching"},
+    "ransac_alignment":      {"code": "algorithm005", "label": "RANSAC rigid alignment"},
+    "jiang_yau":             {"code": "algorithm006", "label": "Jiang & Yau local/global structure"},
+    "bozorth3_style":        {"code": "algorithm007", "label": "Bozorth3-style graph consistency"},
+    "networkx_graph":        {"code": "algorithm008", "label": "NetworkX graph/spectral matching"},
+    "ransac_similarity":     {"code": "algorithm009", "label": "RANSAC v2 (scale-normalised + refit + confidence-ordered)"},
+}
+
+
+def match_templates(t1, t2, algorithm="modern"):
     """
     Similarity of two minutiae sets, in [0, 1].
 
     Each minutia is a dict with x, y, direction (radians) and type ("RIG" or "BIF").
-    Pass legacy=True to run the original algorithm for comparison.
+    `algorithm` selects which scorer runs — see list_algorithms() for the registered
+    names. "legacy" reproduces the original pre-rotation-invariant algorithm exactly,
+    kept so before/after can be measured on identical data.
     """
     if not t1 or not t2:
         return 0.0
-    return _match_legacy(t1, t2) if legacy else _match_modern(t1, t2)
+    fn = _ALGORITHMS.get(algorithm)
+    if fn is None:
+        raise ValueError("unknown matching algorithm %r; choices: %s"
+                         % (algorithm, sorted(_ALGORITHMS)))
+    return fn(t1, t2)
+
+
+def list_algorithms():
+    """Registered algorithm names, for UIs and CLIs to build a selector from."""
+    return sorted(_ALGORITHMS)
+
+
+def algorithm_display_name(algorithm):
+    """'algorithm003 — Minutia Cylinder-Code (MCC)', for UIs. Falls back to the raw key."""
+    info = ALGORITHM_INFO.get(algorithm)
+    if not info:
+        return algorithm
+    return "%s — %s" % (info["code"], info["label"])

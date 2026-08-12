@@ -27,6 +27,8 @@ backend/uploads/
 backend/outputs/
 backend/*.db
 backend/qctool/uploads/
+backend/benchmark_results.csv
+backend/eer_plot.png
 
 # ── Lab bench (backend/labtool) ───────────────────────────────────────────────
 # Fingerprint photos of real people. Never commit these.
