@@ -433,6 +433,7 @@ def _match_hungarian(t1, t2):
 
 from algorithms import (  # noqa: E402
     mcc_cylinder, delaunay, ransac_alignment, jiang_yau, bozorth3_style, networkx_graph,
+    ransac_similarity,
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -453,6 +454,7 @@ _ALGORITHMS = {
     "jiang_yau": jiang_yau.match,
     "bozorth3_style": bozorth3_style.match,
     "networkx_graph": networkx_graph.match,
+    "ransac_similarity": ransac_similarity.match,
 }
 
 # Sequential codes + human labels for the bake-off (see MATCHING_ALGORITHMS.md).
@@ -471,6 +473,7 @@ ALGORITHM_INFO = {
     "jiang_yau":             {"code": "algorithm006", "label": "Jiang & Yau local/global structure"},
     "bozorth3_style":        {"code": "algorithm007", "label": "Bozorth3-style graph consistency"},
     "networkx_graph":        {"code": "algorithm008", "label": "NetworkX graph/spectral matching"},
+    "ransac_similarity":     {"code": "algorithm009", "label": "RANSAC v2 (scale-normalised + refit + confidence-ordered)"},
 }
 
 

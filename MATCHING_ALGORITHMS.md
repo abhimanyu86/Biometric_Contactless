@@ -5,11 +5,11 @@ fingerprint-matching algorithm lives. This doc catalogues what's there, what was
 considered and ruled out, and the results as measured — not assumed — against both
 synthetic data and the team's real gallery.
 
-Nine algorithms are registered today, numbered `algorithm000`–`algorithm008`, all
+Ten algorithms are registered today, numbered `algorithm000`–`algorithm009`, all
 living together on one branch (`algo/bakeoff`) rather than split across one branch
 per algorithm — the point of the bake-off is comparing them side by side, and a
 registry that already supports N algorithms selectable by name makes that a
-one-command sweep instead of nine branch checkouts. labtool's sidebar, Identify tab,
+one-command sweep instead of ten branch checkouts. labtool's sidebar, Identify tab,
 and Metrics tab all read this same registry live.
 
 ## The data contract every algorithm has to honour
@@ -80,7 +80,7 @@ Cylinder-Code algorithm — no cylinder structures are built. It's closer to
 Ratha/Jain-style local-structure matching with relaxation labeling. `algorithm003`
 below is the real MCC, partly to resolve that naming mismatch directly.
 
-## The seven candidates
+## The eight candidates
 
 All minutiae-only, matching the contract above, no image access required.
 
@@ -93,6 +93,7 @@ All minutiae-only, matching the contract above, no image access required.
 | algorithm006 | Jiang & Yau (2000) local + global structure | Two-stage: local structure similarity from each minutia's k=3 nearest neighbours (relative distance/angle/type), then global alignment seeded by the top-10 local matches (not random sampling — the paper's actual efficiency trick), inlier counting. | none |
 | algorithm007 | Bozorth3-style graph consistency | Re-implements NIST NBIS Bozorth3's core mechanism in pure Python: all-pairs within-template relationships (not just k-NN), cross-template compatibility via distance-bucketed pruning, largest-connected-component consistency search (`scipy.sparse.csgraph.connected_components`) as a tractable stand-in for the paper's clique search. | none |
 | algorithm008 | NetworkX graph/spectral matching | k-NN graph via `networkx`, rotation-invariant edge descriptors, Laplacian spectral similarity blended with a one-hop local-correspondence coverage score. Deliberately avoids `graph_edit_distance` (NP-hard, too slow at this scale). | **networkx** |
+| algorithm009 | RANSAC v2 (scale-normalised + refit + confidence-ordered) | `algorithm005`'s successor, built after early real-gallery testing singled RANSAC out as the strongest performer. Three targeted fixes over the same core mechanism: (1) both templates pre-normalised to a canonical median-nearest-neighbour spacing before the RANSAC search runs, fixing the one property `algorithm005` measurably lacked; (2) a proper 2D Kabsch/Procrustes least-squares refit over every inlier the winning hypothesis collected, not just its seed pair; (3) candidate seed pairs ranked by combined `confidence` (the per-minutia field `detect_minutiae` emits that no other algorithm reads) in addition to local density, so the right transform is found faster within the same hypothesis budget. Kept as a separate registered algorithm rather than overwriting `algorithm005`, so the leaderboard shows a direct before/after. | none |
 
 ## Considered, out of scope
 
@@ -134,13 +135,29 @@ correspondence, respectively, under partial overlap.
 | jiang_yau | ✅ (exact) | ✅ | ✅ | ✅ | 41.2 | 1.00 |
 | bozorth3_style | ✅ (exact) | ✅ | ✅ | ✅ | 65.1 | 1.00 |
 | networkx_graph | ✅ (exact) | ✅ | ✅ | partial — rotation+jitter yes, +drop/spurious no | 21.1 | 1.00 |
+| **ransac_similarity** | ✅ (exact) | ✅ | **✅ (fixed)** | ✅ | 36.5 | 1.00 |
 
-**Real-gallery leaderboard** (labtool's Metrics tab, live against the team's 6-person
-gallery, 15 impostor pairs per algorithm — one photo per person, so no genuine pairs
-exist yet): all 9 algorithms currently rank purely by mean impostor score, which is a
-FAR-floor proxy, not a real accuracy verdict. That becomes a real, separation-based
-ranking automatically once probes are tagged with their true identity on the Identify
-tab — the leaderboard recomputes from whatever data exists, no code change needed.
+`ransac_similarity` (algorithm009) is the only algorithm in this table with a full
+column of ✅ — every property tested here, it has. That came at two measured costs
+versus `ransac_alignment`: ~20x slower per match (36.5ms vs 1.8ms — still far under
+the 1-second interactive budget) and a smaller genuine/impostor separation margin
+under the hardest partial-overlap scenario (+0.34/+0.34/+0.24 across 20/30/40% drop
+vs. the original's +0.67/+0.60/+0.50) — still comfortably above the 0.08 pass bar, but
+real: estimating scale from a template that's already missing minutiae is itself
+noisier than estimating it from a clean one, and that noise partially offsets the
+benefit of fixing scale invariance. On the actual real-gallery leaderboard (9 people,
+36 impostor pairs, no genuine data yet), it's a wash either way that early testing
+hoped to see: `ransac_similarity`'s mean impostor score (0.109) is on par with
+`ransac_alignment`'s (0.105), but its *maximum* impostor score is lower (0.141 vs
+0.159) — a small, real, positive signal on top of the synthetic fix.
+
+**Real-gallery leaderboard** (labtool's Metrics tab, live against the team's growing
+gallery — 9 people as of this write-up, 36 impostor pairs per algorithm, one photo per
+person so no genuine pairs exist yet): all 10 algorithms currently rank purely by mean
+impostor score, which is a FAR-floor proxy, not a real accuracy verdict. That becomes a
+real, separation-based ranking automatically once probes are tagged with their true
+identity on the Identify tab — the leaderboard recomputes from whatever data exists, no
+code change needed.
 
 ## A note on what "best" means here
 

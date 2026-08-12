@@ -89,6 +89,7 @@ ROTATIONS = [0, 5, 10, 15, 20, 30, 45]
 CANDIDATE_ALGORITHMS = [
     "legacy", "modern", "hungarian_assignment", "mcc_cylinder", "delaunay",
     "ransac_alignment", "jiang_yau", "bozorth3_style", "networkx_graph",
+    "ransac_similarity",
 ]
 
 # Subset of CANDIDATE_ALGORITHMS that survives a plain rotation of an otherwise-
@@ -101,6 +102,7 @@ CANDIDATE_ALGORITHMS = [
 ROTATION_INVARIANT_ALGORITHMS = [
     "modern", "hungarian_assignment", "mcc_cylinder", "delaunay",
     "ransac_alignment", "jiang_yau", "bozorth3_style", "networkx_graph",
+    "ransac_similarity",
 ]
 
 # Subset of CANDIDATE_ALGORITHMS whose scale normalisation is robust to a single
@@ -111,6 +113,7 @@ ROTATION_INVARIANT_ALGORITHMS = [
 SCALE_ROBUST_ALGORITHMS = [
     "modern", "hungarian_assignment", "mcc_cylinder", "delaunay",
     "ransac_alignment", "jiang_yau", "bozorth3_style", "networkx_graph",
+    "ransac_similarity",
 ]
 
 # Subset of CANDIDATE_ALGORITHMS robust to a UNIFORM rescale of the whole template —
@@ -120,11 +123,13 @@ SCALE_ROBUST_ALGORITHMS = [
 # (measured: score drops to 0.78x baseline, below the 0.8x bar). "ransac_alignment" is
 # excluded because its transform model is deliberately rotation+translation only, with
 # no scale component — a uniformly rescaled duplicate genuinely can't align under a
-# scale-less rigid transform. Both are real, measured properties of those specific
-# designs, not implementation bugs.
+# scale-less rigid transform. "ransac_similarity" (algorithm009) exists specifically to
+# fix this in ransac_alignment's lineage — it pre-normalises both templates to a
+# canonical spacing before the same RANSAC search runs, and passes here where its
+# predecessor doesn't; see backend/algorithms/ransac_similarity.py's module docstring.
 UNIFORM_SCALE_INVARIANT_ALGORITHMS = [
     "legacy", "modern", "hungarian_assignment", "delaunay",
-    "jiang_yau", "bozorth3_style", "networkx_graph",
+    "jiang_yau", "bozorth3_style", "networkx_graph", "ransac_similarity",
 ]
 
 # Subset of ROTATION_INVARIANT_ALGORITHMS that also survives the harder, more realistic
@@ -140,7 +145,7 @@ UNIFORM_SCALE_INVARIANT_ALGORITHMS = [
 # algorithms' own implementers and confirmed empirically here.
 RECAPTURE_ROBUST_ALGORITHMS = [
     "modern", "hungarian_assignment", "mcc_cylinder",
-    "ransac_alignment", "jiang_yau", "bozorth3_style",
+    "ransac_alignment", "jiang_yau", "bozorth3_style", "ransac_similarity",
 ]
 
 # Subset of ROTATION_INVARIANT_ALGORITHMS that discriminates genuine-vs-impostor under
@@ -152,6 +157,7 @@ RECAPTURE_ROBUST_ALGORITHMS = [
 ROTATED_JITTER_DISCRIMINATES_ALGORITHMS = [
     "modern", "hungarian_assignment", "mcc_cylinder",
     "ransac_alignment", "jiang_yau", "bozorth3_style", "networkx_graph",
+    "ransac_similarity",
 ]
 
 
