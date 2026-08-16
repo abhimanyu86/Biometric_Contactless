@@ -65,12 +65,16 @@ for d in [UPLOAD_FOLDER, CROPPED_FOLDER, PREPROCESSED_FOLDER, RESULTS_FOLDER]:
     os.makedirs(d, exist_ok=True)
 
 # ── Model paths ───────────────────────────────────────────────────────────────
-YOLO_MODEL_PATH        = os.path.join(BASE_DIR, "best-new.pt")
-U2NET_MODEL_PATH       = os.path.join(BASE_DIR, "u2net_320x320_float32.tflite")
-ZERO_DCE_MODEL_PATH    = os.path.join(BASE_DIR, "zero_dce_model.h5")
-MINUTIAE_MODEL_PATH    = os.path.join(BASE_DIR, "best_f1.pth")
-LIVENESS_MODEL_PATH    = os.path.join(BASE_DIR, "liveness_model_v3.pt")
-BRIGHTSPOT_MODEL_PATH  = os.path.join(BASE_DIR, "bright_spot_detection.pt")
+# SINGLE_MODELS_DIR mirrors slap_core.py's SLAP_MODELS_DIR — set both to the same
+# path to point both flows at one shared weights directory instead of keeping two
+# copies of ~150MB of models in sync by hand. Defaults to BASE_DIR, unchanged.
+MODELS_DIR             = os.environ.get("SINGLE_MODELS_DIR", BASE_DIR)
+YOLO_MODEL_PATH        = os.path.join(MODELS_DIR, "best-new.pt")
+U2NET_MODEL_PATH       = os.path.join(MODELS_DIR, "u2net_320x320_float32.tflite")
+ZERO_DCE_MODEL_PATH    = os.path.join(MODELS_DIR, "zero_dce_model.h5")
+MINUTIAE_MODEL_PATH    = os.path.join(MODELS_DIR, "best_f1.pth")
+LIVENESS_MODEL_PATH    = os.path.join(MODELS_DIR, "liveness_model_v3.pt")
+BRIGHTSPOT_MODEL_PATH  = os.path.join(MODELS_DIR, "bright_spot_detection.pt")
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 LIVENESS_THRESHOLD = 0.5
@@ -1417,7 +1421,17 @@ def enroll():
                     name=excluded.name, template_json=excluded.template_json, created_at=excluded.created_at
             """, (name, uid, batch, json.dumps(minutiae), datetime.now().isoformat(),
                   finger_position))
-            user_id = c.lastrowid
+            # lastrowid returns 0 when the upsert hits the UPDATE branch (no new
+            # row) — always fetch the real id so the enrollments FK never fails.
+            # Found deployed on biometric (app_5002.py/app_5003.py) but missing
+            # from this file; ported back in rather than losing it on redeploy.
+            # The VM's version filters by (uid, batch) only — this schema's
+            # uniqueness is (uid, batch, finger_position), so that alone could
+            # return the wrong row for a multi-finger enrollment; filtering on
+            # all three matches the actual unique index.
+            c.execute("SELECT id FROM users WHERE uid=? AND batch=? AND finger_position=?",
+                      (uid, batch, finger_position))
+            user_id = c.fetchone()[0]
             c.execute("INSERT INTO enrollments (user_id,timestamp,minutiae_count) VALUES (?,?,?)",
                       (user_id, datetime.now().isoformat(), len(minutiae)))
             conn.commit()
@@ -1477,11 +1491,11 @@ def authenticate():
             best_score = 0.0; best_user = None
             for row in users:
                 uid_db, name, uid, tmpl_json = row
-                score = match_templates(input_minutiae, json.loads(tmpl_json))
+                score = match_templates(input_minutiae, json.loads(tmpl_json), algorithm="legacy")
                 if score > best_score:
                     best_score = score; best_user = (uid_db, name, uid)
 
-            THRESHOLD = 0.25
+            THRESHOLD = 0.20
             if not best_user or best_score < THRESHOLD:
                 return jsonify({"success": False, "message": "No match found",
                                 "confidence": round(best_score,4)})
@@ -1541,18 +1555,221 @@ def verify():
             return jsonify({"success": False, "error": f"No user found: {uid}"}), 404
 
         user_id, name, uid_db, tmpl_json = row
-        score   = match_templates(input_minutiae, json.loads(tmpl_json))
-        matched = score >= 0.25
+        score   = match_templates(input_minutiae, json.loads(tmpl_json), algorithm="legacy")
+        matched = score >= 0.20
+
+        # Log every verify attempt (matched or not) so the History screen shows
+        # them — ported from biometric's deployed app_5002.py/app_5003.py.
+        log_conn = get_connection()
+        try:
+            log_conn.execute(
+                "INSERT INTO authentications (user_id,timestamp,confidence,matched) VALUES (?,?,?,?)",
+                (user_id, datetime.now().isoformat(), score, 1 if matched else 0)
+            )
+            log_conn.commit()
+        finally:
+            log_conn.close()
 
         return jsonify({
             "success":   True,
             "matched":   matched,
             "confidence": round(score,4),
-            "threshold": 0.25,
+            "threshold": 0.20,
             "name":      name,
             "uid":       uid_db,
             "liveness":  liveness,
             "input_minutiae_count":  len(input_minutiae),
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# ══════════════════════════════════════════════════════════════════════════════
+# V2 — CLOUD-ONLY ENDPOINTS (templatization + matching)
+#
+# Per the SITAA on-device/cloud split, on-device now owns capture, quality control,
+# liveness, and preprocessing (segmentation + enhancement) — producing the same
+# single-channel image preprocess_fingerprint() has always produced server-side.
+# These endpoints take that image directly and skip straight to templatization
+# (detect_minutiae) and matching: no YOLO crop, no liveness check, no
+# segmentation/enhancement here — that already happened on the phone.
+#
+# Additive only: /enroll, /authenticate, /verify above are untouched, so labtool and
+# the current Flutter app keep working unmodified while the on-device port lands.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _save_v2_upload():
+    """Save the uploaded preprocessed image (already on-device processed), return its path."""
+    f  = request.files["image"]
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = os.path.join(UPLOAD_FOLDER, f"{ts}_{f.filename}")
+    f.save(path)
+    return path
+
+
+@app.route("/v2/enroll", methods=["POST"])
+def enroll_v2():
+    try:
+        name  = request.form.get("name","").strip()
+        uid   = request.form.get("uid","").strip()
+        batch = request.form.get("batch","").strip()
+        if not all([name, uid, batch]):
+            return jsonify({"success": False, "error": "name, uid, batch required"}), 400
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+
+        try:
+            finger_position = int(request.form.get("finger_position", 0))
+        except ValueError:
+            return jsonify({"success": False,
+                            "error": "finger_position must be an integer 0-10"}), 400
+        if not 0 <= finger_position <= 10:
+            return jsonify({"success": False,
+                            "error": "finger_position must be 0-10"}), 400
+
+        path = _save_v2_upload()
+        preprocessed = cv2.imread(path)
+        if preprocessed is None:
+            return jsonify({"success": False, "error": "image could not be decoded"}), 400
+
+        minutiae = detect_minutiae(preprocessed)
+        if len(minutiae) < 5:
+            return jsonify({"success": False, "error": "Too few minutiae — retake"}), 422
+
+        conn = get_connection()
+        try:
+            c = conn.cursor()
+            c.execute("""
+                INSERT INTO users (name, uid, batch, template_json, created_at, finger_position)
+                VALUES (?,?,?,?,?,?)
+                ON CONFLICT(uid,batch,finger_position) DO UPDATE SET
+                    name=excluded.name, template_json=excluded.template_json, created_at=excluded.created_at
+            """, (name, uid, batch, json.dumps(minutiae), datetime.now().isoformat(),
+                  finger_position))
+            # lastrowid returns 0 when the upsert hits the UPDATE branch (no new
+            # row) — always fetch the real id so the enrollments FK never fails.
+            # Found deployed on biometric (app_5002.py/app_5003.py) but missing
+            # from this file; ported back in rather than losing it on redeploy.
+            # The VM's version filters by (uid, batch) only — this schema's
+            # uniqueness is (uid, batch, finger_position), so that alone could
+            # return the wrong row for a multi-finger enrollment; filtering on
+            # all three matches the actual unique index.
+            c.execute("SELECT id FROM users WHERE uid=? AND batch=? AND finger_position=?",
+                      (uid, batch, finger_position))
+            user_id = c.fetchone()[0]
+            c.execute("INSERT INTO enrollments (user_id,timestamp,minutiae_count) VALUES (?,?,?)",
+                      (user_id, datetime.now().isoformat(), len(minutiae)))
+            conn.commit()
+        finally:
+            conn.close()
+
+        return jsonify({"success": True, "minutiae_count": len(minutiae)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/v2/authenticate", methods=["POST"])
+def authenticate_v2():
+    try:
+        batch = request.form.get("batch","").strip()
+        if not batch:
+            return jsonify({"success": False, "error": "batch required"}), 400
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+
+        path = _save_v2_upload()
+        preprocessed = cv2.imread(path)
+        if preprocessed is None:
+            return jsonify({"success": False, "error": "image could not be decoded"}), 400
+
+        input_minutiae = detect_minutiae(preprocessed)
+
+        conn = get_connection()
+        try:
+            c = conn.cursor()
+            c.execute("SELECT id,name,uid,template_json FROM users WHERE batch=?", (batch,))
+            users = c.fetchall()
+            if not users:
+                return jsonify({"success": False, "message": "No users in this batch"})
+
+            best_score = 0.0; best_user = None
+            for row in users:
+                uid_db, name, uid, tmpl_json = row
+                score = match_templates(input_minutiae, json.loads(tmpl_json), algorithm="legacy")
+                if score > best_score:
+                    best_score = score; best_user = (uid_db, name, uid)
+
+            THRESHOLD = 0.20
+            if not best_user or best_score < THRESHOLD:
+                return jsonify({"success": False, "message": "No match found",
+                                "confidence": round(best_score,4)})
+
+            uid_db, name, uid = best_user
+            c.execute("INSERT INTO authentications (user_id,timestamp,confidence,matched) VALUES (?,?,?,1)",
+                      (uid_db, datetime.now().isoformat(), best_score))
+            conn.commit()
+        finally:
+            conn.close()
+
+        return jsonify({"success": True, "name": name, "uid": uid,
+                        "confidence": round(best_score,4)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/v2/verify", methods=["POST"])
+def verify_v2():
+    try:
+        uid   = request.form.get("uid","").strip()
+        batch = request.form.get("batch","").strip()
+        if not uid or not batch:
+            return jsonify({"success": False, "error": "uid and batch required"}), 400
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+
+        path = _save_v2_upload()
+        preprocessed = cv2.imread(path)
+        if preprocessed is None:
+            return jsonify({"success": False, "error": "image could not be decoded"}), 400
+
+        input_minutiae = detect_minutiae(preprocessed)
+
+        conn = get_connection()
+        try:
+            c = conn.cursor()
+            c.execute("SELECT id,name,uid,template_json FROM users WHERE uid=? AND batch=?", (uid,batch))
+            row = c.fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return jsonify({"success": False, "error": f"No user found: {uid}"}), 404
+
+        user_id, name, uid_db, tmpl_json = row
+        score   = match_templates(input_minutiae, json.loads(tmpl_json), algorithm="legacy")
+        matched = score >= 0.20
+
+        # Log every verify attempt (matched or not) so the History screen shows
+        # them — ported from biometric's deployed app_5002.py/app_5003.py.
+        log_conn = get_connection()
+        try:
+            log_conn.execute(
+                "INSERT INTO authentications (user_id,timestamp,confidence,matched) VALUES (?,?,?,?)",
+                (user_id, datetime.now().isoformat(), score, 1 if matched else 0)
+            )
+            log_conn.commit()
+        finally:
+            log_conn.close()
+
+        return jsonify({
+            "success":    True,
+            "matched":    matched,
+            "confidence": round(score,4),
+            "threshold":  0.20,
+            "name":       name,
+            "uid":        uid_db,
+            "input_minutiae_count": len(input_minutiae),
         })
     except Exception as e:
         traceback.print_exc()
