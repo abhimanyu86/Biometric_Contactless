@@ -27,6 +27,7 @@ import numpy as np
 from flask import Flask, request, jsonify
 
 import slap_core as core
+import fir  # same module app.py's /export_fir already uses
 
 app = Flask(__name__)
 
@@ -201,6 +202,23 @@ def quality_check_endpoint():
     too_dark = brightness < 55.0
     too_bright = brightness > 205.0
 
+    # Pixel-overexposure glare check — same fallback formula single-finger's
+    # check_glare() uses when no glare model is available; slap has no glare model
+    # at all, so this is the only signal, not a fallback from a model attempt.
+    overexposed_ratio = float(np.mean(gray > 240))
+    has_glare = overexposed_ratio > 0.05
+
+    # ROI check — every detected finger must sit inside the frame with a small
+    # margin, not clipped at the edge. Previously hardcoded to True/no guidance.
+    h, w = img.shape[:2]
+    margin_x, margin_y = int(w * 0.02), int(h * 0.02)
+    in_roi = bool(dets) and all(
+        d["bbox"][0] > margin_x and d["bbox"][1] > margin_y and
+        d["bbox"][2] < w - margin_x and d["bbox"][3] < h - margin_y
+        for d in dets
+    )
+    roi_guidance = "" if in_roi else "Move hand toward center — finger(s) too close to frame edge"
+
     if n == 0:
         guidance = "Place your hand in the frame"
     elif is_blurry:
@@ -209,10 +227,15 @@ def quality_check_endpoint():
         guidance = "Too dark — add light / torch"
     elif too_bright:
         guidance = "Too bright — reduce glare"
+    elif has_glare:
+        guidance = "Glare detected — reduce direct light"
+    elif not in_roi:
+        guidance = roi_guidance
     else:
         guidance = f"{n} finger{'s' if n != 1 else ''} detected — hold still"
 
-    passed = (n >= 1) and (not is_blurry) and (not too_dark) and (not too_bright)
+    passed = ((n >= 1) and (not is_blurry) and (not too_dark) and (not too_bright)
+              and (not has_glare) and in_roi)
     return jsonify({
         "passed": passed,
         "finger_detected": n > 0,
@@ -222,9 +245,10 @@ def quality_check_endpoint():
         "blur": {"blur_score": round(blur_score, 1), "is_blurry": is_blurry},
         "brightness": {"brightness": round(brightness, 1),
                        "too_dark": too_dark, "too_bright": too_bright},
-        "glare": {"has_glare": False},
-        "in_roi": True,
-        "roi_guidance": "",
+        "glare": {"has_glare": has_glare,
+                  "overexposed_ratio": round(overexposed_ratio, 4)},
+        "in_roi": in_roi,
+        "roi_guidance": roi_guidance,
     })
 
 
@@ -263,6 +287,20 @@ def enroll_slap_endpoint():
     if result["finger_count"] == 0:
         return jsonify(result), 422
 
+    # Fail closed on liveness, same as authenticate_slap/verify_slap — a spoofed
+    # capture must not be enrollable just because detection+minutiae succeeded.
+    for f in result["fingers"]:
+        if not f.get("ok"):
+            continue
+        lv = f.get("liveness") or {}
+        if not lv.get("is_live"):
+            return jsonify({
+                "success": False,
+                "spoof_detected": True,
+                "finger_position": f.get("finger_position"),
+                "liveness_confidence": lv.get("confidence", 0.0),
+            }), 422
+
     con = sqlite3.connect(SLAP_DB)
     now = datetime.utcnow().isoformat()
     saved = []
@@ -300,7 +338,7 @@ import traceback
 # single-finger path, per finger position, so the two cannot drift apart again.
 from matching import match_templates  # noqa: F401
 
-MATCH_THRESH  = 0.25
+MATCH_THRESH  = 0.20
 
 
 def init_slap_history_db():
@@ -325,21 +363,29 @@ def init_slap_history_db():
     con.close()
 
 
-def _best_finger_match(probe_min, user_rows):
-    """Match one probe minutiae set against ALL enrolled finger positions of one
-    user; return (best_score, matched_position, all_scores_per_pos)."""
+def _best_finger_match(probe_min, user_rows, probe_position=None):
+    """Match one probe minutiae set against a user's enrolled finger(s); return
+    (best_score, matched_position, all_scores_per_pos).
+
+    When probe_position is given, only compares against the stored template at that
+    SAME position — a probe finger's declared identity shouldn't be free to search
+    every stored position for a lucky match. Without a fingerprint position, a probe
+    finger is unconstrained (fingerprint identity unknown), which is the previous
+    behavior."""
     best_score = 0.0
     matched_pos = None
     per_pos = {}
     for user_row in user_rows:
         pos = user_row["finger_position"]
+        if probe_position is not None and pos != probe_position:
+            continue
         try:
             stored_min = json.loads(user_row["minutiae_json"])
         except Exception:
             continue
         if not stored_min:
             continue
-        s = match_templates(probe_min, stored_min)
+        s = match_templates(probe_min, stored_min, algorithm="legacy")
         per_pos[pos] = round(s, 5)
         if s > best_score:
             best_score = s
@@ -406,7 +452,8 @@ def authenticate_slap_endpoint():
                 finger_scores = []
                 matched_positions = []
                 for f in fingers:
-                    s, mpos, _per = _best_finger_match(f["minutiae"], user_rows)
+                    s, mpos, _per = _best_finger_match(
+                        f["minutiae"], user_rows, probe_position=f["finger_position"])
                     if s > 0.0:
                         finger_scores.append({
                             "probe_position": f["finger_position"],
@@ -522,7 +569,8 @@ def verify_slap_endpoint():
                 s, mpos, _ = _best_finger_match(
                     f["minutiae"],
                     [{"finger_position": r["finger_position"],
-                      "minutiae_json": r["minutiae_json"]} for r in rows])
+                      "minutiae_json": r["minutiae_json"]} for r in rows],
+                    probe_position=f["finger_position"])
                 all_scores.append(s)
                 if s > 0.0:
                     matched_fingers.append({
@@ -553,6 +601,358 @@ def verify_slap_endpoint():
             })
         finally:
             con.close()
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# V2 — CLOUD-ONLY SLAP ENDPOINTS (templatization + matching)
+#
+# Mirrors the split in app.py's /v2/enroll, /v2/authenticate, /v2/verify: on-device
+# now owns per-finger detection, quality control, liveness, and preprocessing
+# (segmentation + enhancement) for the whole slap. These endpoints take the
+# already-preprocessed per-finger images directly and skip straight to
+# templatization (core.detect_minutiae) and matching — no detect_all_finger_boxes,
+# no liveness, no segmentation/enhancement here, that already happened on-device.
+#
+# Upload shape: repeated `image` file fields, one per finger, in left-to-right
+# capture order — same convention detect_all_finger_boxes + label_fingers() already
+# use today (via hand_side / finger_order), just driven by upload order instead of
+# on-server detection order.
+#
+# Additive only: /process_slap, /enroll_slap, /authenticate_slap, /verify_slap
+# above are untouched, so existing clients keep working unmodified.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _read_images_list(field_name="image"):
+    imgs = []
+    for f in request.files.getlist(field_name):
+        data = np.frombuffer(f.read(), np.uint8)
+        img = cv2.imdecode(data, cv2.IMREAD_COLOR)
+        if img is not None:
+            imgs.append(img)
+    return imgs
+
+
+def _label_by_order(n, hand_side, finger_order=None):
+    """Assign finger_position/iso_code by upload order — the on-device-driven
+    equivalent of label_fingers(), which assigns by detected-bbox left-to-right
+    order."""
+    order = finger_order or SLAP_ORDER.get(hand_side, [])
+    labels = []
+    for idx in range(n):
+        pos = order[idx] if idx < len(order) else f"{hand_side}_finger_{idx + 1}"
+        labels.append({"finger_position": pos, "iso_code": ISO_FINGER_CODES.get(pos)})
+    return labels
+
+
+@app.route("/v2/enroll_slap", methods=["POST"])
+def enroll_slap_v2():
+    try:
+        uid = request.form.get("uid", "").strip()
+        if not uid:
+            return jsonify({"success": False, "error": "uid required"}), 400
+        name      = request.form.get("name", "")
+        batch     = request.form.get("batch", "default")
+        hand_side = request.form.get("hand_side", "right")
+
+        imgs = _read_images_list()
+        if not imgs:
+            return jsonify({"success": False, "error": "at least one image required"}), 400
+        labels = _label_by_order(len(imgs), hand_side, _parse_finger_order())
+
+        con = sqlite3.connect(SLAP_DB)
+        now = datetime.utcnow().isoformat()
+        saved = []
+        for img, label in zip(imgs, labels):
+            minutiae = core.detect_minutiae(img)
+            iso = core.export_iso_template(minutiae)
+            con.execute(
+                """INSERT OR REPLACE INTO slap_templates
+                   (uid,name,batch,finger_position,iso_code,minutiae_count,
+                    template_b64,minutiae_json,created_at)
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                (uid, name, batch, label["finger_position"], label["iso_code"],
+                 len(minutiae), base64.b64encode(iso).decode(),
+                 json.dumps(minutiae), now),
+            )
+            saved.append({
+                "finger_position": label["finger_position"],
+                "iso_code": label["iso_code"],
+                "minutiae_count": len(minutiae),
+            })
+        con.commit()
+        con.close()
+
+        return jsonify({
+            "success": True,
+            "uid": uid, "name": name, "batch": batch, "hand_side": hand_side,
+            "enrolled_fingers": saved, "finger_count": len(saved),
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/v2/authenticate_slap", methods=["POST"])
+def authenticate_slap_v2():
+    try:
+        batch = request.form.get("batch", "").strip()
+        hand_side = request.form.get("hand_side", "right")
+        if not batch:
+            return jsonify({"success": False, "error": "batch required"}), 400
+
+        imgs = _read_images_list()
+        if not imgs:
+            return jsonify({"success": False, "error": "at least one image required"}), 400
+        labels = _label_by_order(len(imgs), hand_side, _parse_finger_order())
+        fingers = [{"finger_position": lbl["finger_position"],
+                    "minutiae": core.detect_minutiae(img)}
+                   for img, lbl in zip(imgs, labels)]
+
+        con = sqlite3.connect(SLAP_DB)
+        con.row_factory = sqlite3.Row
+        try:
+            rows = con.execute(
+                "SELECT uid, name, finger_position, minutiae_json "
+                "FROM slap_templates WHERE batch = ? ORDER BY uid",
+                (batch,),
+            ).fetchall()
+            if not rows:
+                return jsonify({"success": False,
+                                "message": "No enrolled slap users in batch"}), 404
+
+            by_uid = {}
+            for r in rows:
+                by_uid.setdefault(r["uid"], []).append(
+                    {"finger_position": r["finger_position"],
+                     "name": r["name"],
+                     "minutiae_json": r["minutiae_json"]})
+
+            best_uid = None
+            best_name = None
+            best_agg = 0.0
+            best_matches = []
+            per_user = []
+            for uid, user_rows in by_uid.items():
+                finger_scores = []
+                matched_positions = []
+                for f in fingers:
+                    s, mpos, _per = _best_finger_match(
+                        f["minutiae"], user_rows, probe_position=f["finger_position"])
+                    if s > 0.0:
+                        finger_scores.append({
+                            "probe_position": f["finger_position"],
+                            "matched_position": mpos,
+                            "confidence": round(s, 5),
+                        })
+                        matched_positions.append(s)
+                if not matched_positions:
+                    continue
+                top = sorted(matched_positions, reverse=True)[:2]
+                agg_score = sum(top) / len(top)
+                per_user.append({"uid": uid, "agg_score": round(agg_score, 5),
+                                 "matched_fingers": finger_scores})
+                if agg_score > best_agg:
+                    best_agg = agg_score
+                    best_uid = uid
+                    best_name = user_rows[0]["name"]
+                    best_matches = finger_scores
+
+            success = best_agg >= MATCH_THRESH and best_uid is not None
+            now = datetime.utcnow().isoformat()
+            if success:
+                avg_conf = (sum(m["confidence"] for m in best_matches)
+                            / max(1, len(best_matches)))
+                con.execute(
+                    """INSERT INTO slap_auth_history
+                    (uid,name,batch,hand_side,success,avg_confidence,best_confidence,
+                     matched_fingers_json,created_at) VALUES (?,?,?,?,?,?,?,?,?)""",
+                    (best_uid, best_name, batch, hand_side, 1,
+                     round(avg_conf, 5), round(best_agg, 5),
+                     json.dumps(best_matches), now),
+                )
+                con.commit()
+                return jsonify({
+                    "success": True,
+                    "uid": best_uid,
+                    "name": best_name,
+                    "hand_side": hand_side,
+                    "avg_confidence": round(avg_conf, 5),
+                    "confidence": round(best_agg, 5),
+                    "threshold": MATCH_THRESH,
+                    "matched_fingers": best_matches,
+                })
+            else:
+                con.execute(
+                    """INSERT INTO slap_auth_history
+                    (uid,name,batch,hand_side,success,avg_confidence,best_confidence,
+                     matched_fingers_json,created_at) VALUES (?,?,?,?,?,?,?,?,?)""",
+                    (None, None, batch, hand_side, 0, 0.0, round(best_agg, 5),
+                     json.dumps(per_user[:10]), now),
+                )
+                con.commit()
+                return jsonify({
+                    "success": False,
+                    "message": "No match found",
+                    "confidence": round(best_agg, 5),
+                    "threshold": MATCH_THRESH,
+                })
+        finally:
+            con.close()
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/v2/verify_slap", methods=["POST"])
+def verify_slap_v2():
+    try:
+        uid = request.form.get("uid", "").strip()
+        batch = request.form.get("batch", "").strip()
+        hand_side = request.form.get("hand_side", "right")
+        if not uid or not batch:
+            return jsonify({"success": False,
+                            "error": "uid and batch required"}), 400
+
+        imgs = _read_images_list()
+        if not imgs:
+            return jsonify({"success": False, "error": "at least one image required"}), 400
+        labels = _label_by_order(len(imgs), hand_side, _parse_finger_order())
+        fingers = [{"finger_position": lbl["finger_position"],
+                    "minutiae": core.detect_minutiae(img)}
+                   for img, lbl in zip(imgs, labels)]
+
+        con = sqlite3.connect(SLAP_DB)
+        con.row_factory = sqlite3.Row
+        try:
+            rows = con.execute(
+                "SELECT uid, name, finger_position, minutiae_json "
+                "FROM slap_templates WHERE uid=? AND batch=?",
+                (uid, batch),
+            ).fetchall()
+            if not rows:
+                return jsonify({"success": False,
+                                "error": f"No slap enrollment for uid={uid}"}), 404
+            name = rows[0]["name"]
+
+            matched_fingers = []
+            all_scores = []
+            for f in fingers:
+                s, mpos, _ = _best_finger_match(
+                    f["minutiae"],
+                    [{"finger_position": r["finger_position"],
+                      "minutiae_json": r["minutiae_json"]} for r in rows],
+                    probe_position=f["finger_position"])
+                all_scores.append(s)
+                if s > 0.0:
+                    matched_fingers.append({
+                        "probe_position": f["finger_position"],
+                        "matched_position": mpos,
+                        "confidence": round(s, 5),
+                    })
+
+            if not all_scores:
+                score = 0.0
+            else:
+                top = sorted(all_scores, reverse=True)[:2]
+                score = sum(top) / len(top)
+            matched = score >= MATCH_THRESH
+            avg_conf = (sum(m["confidence"] for m in matched_fingers)
+                        / max(1, len(matched_fingers)))
+
+            return jsonify({
+                "success": True,
+                "matched": matched,
+                "uid": uid,
+                "name": name,
+                "hand_side": hand_side,
+                "confidence": round(score, 5),
+                "avg_confidence": round(avg_conf, 5),
+                "threshold": MATCH_THRESH,
+                "matched_fingers": matched_fingers,
+            })
+        finally:
+            con.close()
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── Export FIR (per finger) ──────────────────────────────────────────────────
+@app.route("/export_fir_slap", methods=["POST"])
+def export_fir_slap():
+    """
+    Produce one ISO/IEC 19794-4 FIR per detected finger.
+
+    Mirrors app.py's /export_fir exactly (detect+crop -> preprocess -> normalise to
+    500 DPI -> encode -> self-decode to prove it round-trips), just looped over
+    every finger in the slap instead of one. fir.encode_fir()'s finger_position
+    already uses the standard's 0-10 codes, which is exactly what label_fingers()'s
+    iso_code already computes for each detected finger — no remapping needed.
+
+    fir.py's own record format is single-finger (number_of_fingers hardcoded to 1),
+    so "a slap FIR" here means N independent standard-conformant records, one per
+    finger, not one record carrying four fingers — that keeps the byte format
+    untouched rather than extending a standard's on-wire layout speculatively.
+
+    Fields: image (file), hand_side=left|right, finger_order (optional), source_dpi
+    (optional).
+    """
+    try:
+        img = _read_image()
+        if img is None:
+            return jsonify({"success": False, "error": "image required"}), 400
+
+        hand_side = request.form.get("hand_side", "right")
+        source_dpi = request.form.get("source_dpi")
+        source_dpi = int(source_dpi) if source_dpi else None
+
+        dets = core.detect_all_finger_boxes(img, conf=0.25)
+        if not dets:
+            return jsonify({"success": False, "error": "No fingers detected"}), 422
+        dets = label_fingers(dets, hand_side, finger_order=_parse_finger_order())
+
+        records = []
+        errors = []
+        for d in dets:
+            x1, y1, x2, y2 = d["bbox"]
+            crop = img[y1:y2, x1:x2]
+            try:
+                mask = core.get_segmentation_mask(crop)
+                preprocessed = core.preprocess_fingerprint(crop, mask=mask)
+
+                normalised, norm_info = fir.normalize_to_500dpi(preprocessed,
+                                                                 source_dpi=source_dpi)
+                record = fir.encode_fir(normalised, finger_position=d["iso_code"])
+                # Decode our own output before returning it, same as /export_fir —
+                # a record that will not parse is worse than no record.
+                parsed = fir.decode_fir(record)
+
+                records.append({
+                    "finger_position": d["finger_position"],
+                    "iso_code": d["iso_code"],
+                    "fir_base64": base64.b64encode(record).decode(),
+                    "record_bytes": len(record),
+                    "width": parsed["finger"]["width"],
+                    "height": parsed["finger"]["height"],
+                    "resolution_dpi": parsed["header"]["image_resolution_x"],
+                    "normalisation": norm_info,
+                })
+            except fir.FIRError as e:
+                errors.append({"finger_position": d["finger_position"],
+                               "error": "FIR encoding failed: %s" % e})
+            except Exception as e:
+                errors.append({"finger_position": d["finger_position"], "error": str(e)})
+
+        return jsonify({
+            "success": len(records) > 0,
+            "hand_side": hand_side,
+            "finger_count": len(records),
+            "records": records,
+            "errors": errors,
+        })
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
@@ -600,9 +1000,17 @@ def history_endpoint():
     return jsonify({"history": history})
 
 
+# Module-level, not inside __main__: gunicorn/wsgi.py imports this module as
+# "slap_app:app" rather than executing it directly, so anything gated behind
+# __main__ silently never runs under a production WSGI server. Confirmed the
+# hard way — wsgi.py calls init_slap_db() itself but not this one, since
+# slap_auth_history didn't exist yet when wsgi.py was written (predates
+# authenticate_slap/verify_slap). Idempotent (CREATE TABLE IF NOT EXISTS), so
+# safe to call unconditionally regardless of what any given entrypoint does.
+init_slap_db()
+init_slap_history_db()
+
 if __name__ == "__main__":
-    init_slap_db()
-    init_slap_history_db()
     core.load_models()
     print("=" * 60)
     print("  Multi-finger (slap) pipeline")
