@@ -281,6 +281,129 @@ something broken by this deployment.
 
 ---
 
+## Final pre-integration review — 8 more findings, all fixed
+
+Before handing this off, ran a fresh-eyes review pass (4 independent readers, one per
+file group, each finding independently re-verified against the real code and — for
+anything with a "this would break in production" claim — against the actual running
+deployment before being trusted). Found 8 real issues, all fixed and redeployed to both
+`biometric` and `sitaa-cloud-vm`, verified live afterward.
+
+## 13. `enroll_slap_v2`'s DB connection not wrapped in try/finally — FIXED
+
+**Where:** `cloud_app.py`. Every other DB-touching route in the file wraps its
+`sqlite3.connect()` in try/finally; this one didn't. If `detect_minutiae()` or a
+write raised mid-loop, the connection leaked instead of closing, risking held
+locks under repeated failures. Fixed to match the file's own established pattern.
+
+## 14. `matching.py`'s eager algorithm-registry import needs `networkx`, and the requirements comment said otherwise — FIXED (not a live outage, but a real fragility)
+
+**Where:** `matching.py` imports the whole `algorithms/` package unconditionally
+at module load (to populate the registry), and `algorithms/networkx_graph.py`
+does a bare `import networkx` — so it's a real *import-time* dependency of
+`matching.py` regardless of which algorithm is ever selected at runtime.
+`requirements-cloud.txt`'s comment claimed networkx was safely excludable
+because only the bake-off uses it — that reasoning conflates runtime selection
+with import-time module loading, and is wrong.
+
+**Important correction to how this was first reported:** an initial pass
+concluded this meant the deployed cloud service was currently crashing on
+startup. That's false — checked directly against the real running container,
+and `networkx` was already present the whole time, pulled in transitively by
+`torch` (`pip show networkx` reports `Required-by: torch`). Nothing was down.
+The real issue is that this safety net was implicit and unpinned — a future
+torch version could drop that dependency and silently break the service with
+no warning. Fixed by pinning `networkx` explicitly in `requirements-cloud.txt`
+and correcting the comment's reasoning.
+
+**Severity:** real latent fragility, not a live incident. Fixed either way —
+worth calling out because getting the actual current-state severity right
+matters as much as finding the issue.
+
+## 15. `_build_graph`'s "drop self" logic could self-loop on duplicate-coordinate minutiae — FIXED
+
+**Where:** `matching.py`, used by the `"modern"` and `"hungarian_assignment"`
+algorithms (confirmed **not** used by `"legacy"`, which has its own separate
+`_legacy_build_graph` — so this doesn't touch the current production config).
+`for j in idxs[i][1:]:` assumed a KD-tree query always returns a point as its
+own nearest neighbor (rank 0). When two minutiae share exact coordinates,
+cKDTree can return the duplicate at rank 0 instead, so the slice drops the
+real duplicate and leaves the node listing itself as a neighbor — a self-loop
+edge that corrupts the k-NN graph relaxation labeling depends on.
+
+**Fix:** filter by index (`if j == i: continue`) instead of assuming position
+0 is self — correct in both the normal and duplicate-coordinate case. Verified
+directly with a synthetic template containing duplicate coordinates.
+
+**Severity:** real bug, currently dormant given `"legacy"` is what's selected in
+production — but a live risk the moment matching is recalibrated to `"modern"`.
+
+## 16. `slap_core.check_liveness()` still failed open — FIXED
+
+**Where:** `slap_core.py`. `app.py`'s equivalent was deliberately changed to
+fail closed a while back ("this previously returned is_live=True when the
+model was absent, which meant a deployment with missing weights silently
+accepted every spoof"). `slap_core.py`'s copy was never given the same fix —
+it still silently reported every capture as live if the liveness model wasn't
+loaded, which would have quietly defeated this session's own new `enroll_slap`
+liveness gate (#1) under exactly the failure condition that gate exists for.
+
+**Fix:** applied the identical fail-closed pattern from `app.py`, including
+the `ALLOW_LIVENESS_BYPASS` escape hatch for local dev.
+
+**Severity:** real security gap, same class as #1 — just in the one place #1's
+fix didn't reach. Fixed and redeployed.
+
+## 17. Slap aggregation was still duplicated in FOUR places, not fixed everywhere it needed to be — FIXED
+
+**Where:** `slap_app.py`. Turns out the #8 fix (consolidating into
+`slap_matching.score_against_user()`) only ever got wired into `cloud_app.py`
+— the original `/authenticate_slap`, `/verify_slap`, and this file's own
+`/v2/authenticate_slap`, `/v2/verify_slap` were all still running the old
+duplicated inline logic (including `/verify_slap`'s dilution bug this whole
+fix was supposed to close).
+
+**Fix:** all four now call `slap_matching.score_against_user()`. Removed the
+now-fully-unused local `_best_finger_match()` and the now-unused
+`from matching import match_templates` import, so this logic genuinely lives
+in one place.
+
+**Severity:** the actual live deployment (`biometric`'s reference server) was
+running the un-fixed version this whole time despite the fix existing in the
+codebase. Fixed and redeployed.
+
+## 18. `export_fir_slap` could throw a raw TypeError on a 5th detected finger — FIXED
+
+**Where:** `slap_app.py`. `label_fingers()` returns `iso_code: None` for any
+detected finger beyond the 4-slot `SLAP_ORDER`/`finger_order` list (a
+mis-detection, a stray thumb, etc.). Passing `None` into
+`fir.encode_fir(finger_position=...)` throws `TypeError` before it even
+reaches `fir.py`'s own range check — caught by the per-finger `except
+Exception`, so it doesn't crash the whole request, but produces an unhelpful
+raw Python error instead of a clean message for that one finger.
+
+**Fix:** fall back to `0` (`fir.py`'s own defined "unknown" code) when
+`iso_code` is `None`, matching how `/export_fir`'s own default already works.
+
+## 19. Two stale/misleading comments — FIXED
+
+- `app.py`'s `run_quality_gate()` docstring claimed it was "the same logic as
+  /quality_check" — it's the opposite: the heavier, U²Net-masked path used at
+  actual enroll/authenticate/verify time, while `/quality_check` is the
+  deliberately lighter polling variant. Corrected.
+- `/compare_contact` (an unrelated contact-vs-contactless comparison feature)
+  was still calling `match_templates()` without `algorithm="legacy"`, silently
+  using `matching.py`'s `"modern"` default — inconsistent with "legacy
+  throughout" even though this endpoint isn't part of the cL2cL matching flow.
+  Added for consistency.
+
+## 20. Dead `import base64` in `cloud_app.py` — cleaned up
+
+Genuinely unused (found and confirmed by direct grep) — removed while in the
+file for the fixes above. Not a bug, just hygiene.
+
+---
+
 ## Summary
 
 | # | Issue | Status |
@@ -297,3 +420,11 @@ something broken by this deployment.
 | 10 | cloud_app.py DB never initialized under gunicorn | **Fixed** — caught during live deployment, moved init to module level |
 | 11 | slap_app.py's slap_auth_history never initialized under gunicorn | **Fixed** — same pattern as #10, caught deploying to biometric |
 | 12 | Liveness gate rejects real photos on biometric's slap deployment | Not a bug — confirms the already-known liveness calibration issue, now actually enforced |
+| 13 | enroll_slap_v2 DB connection not wrapped in try/finally | **Fixed** |
+| 14 | Eager networkx import undeclared in requirements-cloud.txt | **Fixed** — pinned explicitly; was never actually down (transitively present via torch) |
+| 15 | _build_graph self-loop on duplicate-coordinate minutiae | **Fixed** — dormant under "legacy", live risk if ever recalibrated to "modern" |
+| 16 | slap_core.check_liveness still failed open | **Fixed** — real security gap, same class as #1 |
+| 17 | Slap aggregation fix (#8) never reached 3 of the 4 places it needed to | **Fixed** — biometric's live deployment was running the un-fixed version |
+| 18 | export_fir_slap TypeError on a 5th detected finger | **Fixed** |
+| 19 | Two stale/misleading comments (run_quality_gate docstring, compare_contact algorithm) | **Fixed** |
+| 20 | Dead import base64 in cloud_app.py | Cleaned up |

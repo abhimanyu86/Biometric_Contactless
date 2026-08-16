@@ -258,8 +258,16 @@ def _build_graph(tmpl):
     edges = {}
     neighbours = [[] for _ in range(n)]
     for i in range(n):
-        for j in idxs[i][1:]:                        # drop self
+        # Drop self by index, not by assuming rank-0 is always self: when
+        # another minutia shares i's exact coordinates, cKDTree can return
+        # that duplicate at rank 0 instead, and slicing [1:] would silently
+        # drop the real duplicate neighbor while leaving i as its own
+        # neighbor (a self-loop edge). Filtering by index handles both the
+        # normal case and the duplicate-coordinate case correctly.
+        for j in idxs[i]:
             j = int(j)
+            if j == i:
+                continue
             edges[(i, j)] = _compute_edge(tmpl[i], tmpl[j])
             neighbours[i].append(j)
     return edges, neighbours

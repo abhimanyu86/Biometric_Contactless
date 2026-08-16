@@ -601,7 +601,12 @@ def quality_gate(image_bgr, mask=None, profiler=None):
 
 
 def run_quality_gate(image_bgr, profiler=None):
-    """Quality gate on finger ROI — same logic as /quality_check (YOLO crop + U²Net mask)."""
+    """Quality gate on finger ROI — the authoritative, heavier path used at actual
+    /enroll, /authenticate, /verify, /process commit time (YOLO crop + real U²Net
+    mask via prepare_quality_roi/get_segmentation_mask). NOT the same logic as the
+    fast /quality_check polling endpoint, which deliberately skips U²Net masking
+    entirely for speed (see /quality_check's own header comment) — the two paths
+    use different crops and thresholds by design, not by oversight."""
     eval_img, eval_mask, meta = prepare_quality_roi(image_bgr, profiler=profiler)
     if not meta.get("finger_detected"):
         return {
@@ -2045,7 +2050,7 @@ def compare_contact():
         t_mcc = time.perf_counter()
         minutiae_contact = detect_minutiae(processed_contact)
         minutiae_contactless = detect_minutiae(processed_contactless)
-        mcc_score = match_templates(minutiae_contact, minutiae_contactless)
+        mcc_score = match_templates(minutiae_contact, minutiae_contactless, algorithm="legacy")
         profiler.record_step("Minutiae Template Matching (MCC)", t_mcc, is_model_inference=True)
 
         # 9. Encryption + PID Packaging (Mock)
