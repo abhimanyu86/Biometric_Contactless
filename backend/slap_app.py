@@ -334,9 +334,12 @@ def enroll_slap_endpoint():
 # ══════════════════════════════════════════════════════════════════════════════
 import traceback
 
-# Shared matcher — see matching.py. Slap matching runs the same algorithm as the
-# single-finger path, per finger position, so the two cannot drift apart again.
-from matching import match_templates  # noqa: F401
+# Shared slap aggregation — see slap_matching.py (which itself imports
+# matching.py). This file used to have its own local _best_finger_match()
+# copy; consolidated so slap matching genuinely lives in one place, not
+# copies that can drift apart again (see bug.md #8, which was exactly that
+# happening).
+from slap_matching import score_against_user
 
 MATCH_THRESH  = 0.20
 
@@ -361,36 +364,6 @@ def init_slap_history_db():
     )
     con.commit()
     con.close()
-
-
-def _best_finger_match(probe_min, user_rows, probe_position=None):
-    """Match one probe minutiae set against a user's enrolled finger(s); return
-    (best_score, matched_position, all_scores_per_pos).
-
-    When probe_position is given, only compares against the stored template at that
-    SAME position — a probe finger's declared identity shouldn't be free to search
-    every stored position for a lucky match. Without a fingerprint position, a probe
-    finger is unconstrained (fingerprint identity unknown), which is the previous
-    behavior."""
-    best_score = 0.0
-    matched_pos = None
-    per_pos = {}
-    for user_row in user_rows:
-        pos = user_row["finger_position"]
-        if probe_position is not None and pos != probe_position:
-            continue
-        try:
-            stored_min = json.loads(user_row["minutiae_json"])
-        except Exception:
-            continue
-        if not stored_min:
-            continue
-        s = match_templates(probe_min, stored_min, algorithm="legacy")
-        per_pos[pos] = round(s, 5)
-        if s > best_score:
-            best_score = s
-            matched_pos = pos
-    return best_score, matched_pos, per_pos
 
 
 # ── Authenticate (1:N) slap ──────────────────────────────────────────────────
@@ -443,28 +416,18 @@ def authenticate_slap_endpoint():
                      "name": r["name"],
                      "minutiae_json": r["minutiae_json"]})
 
+            # Shared aggregation from slap_matching.py — see the note on
+            # authenticate_slap_v2 / verify_slap_v2; consolidating this copy
+            # too so there is genuinely one implementation, not three.
             best_uid = None
             best_name = None
             best_agg = 0.0
             best_matches = []
             per_user = []
             for uid, user_rows in by_uid.items():
-                finger_scores = []
-                matched_positions = []
-                for f in fingers:
-                    s, mpos, _per = _best_finger_match(
-                        f["minutiae"], user_rows, probe_position=f["finger_position"])
-                    if s > 0.0:
-                        finger_scores.append({
-                            "probe_position": f["finger_position"],
-                            "matched_position": mpos,
-                            "confidence": round(s, 5),
-                        })
-                        matched_positions.append(s)
-                if not matched_positions:
+                agg_score, finger_scores = score_against_user(fingers, user_rows)
+                if not finger_scores:
                     continue
-                top = sorted(matched_positions, reverse=True)[:2]
-                agg_score = sum(top) / len(top)  # average of top 2 matched fingers
                 per_user.append({"uid": uid, "agg_score": round(agg_score, 5),
                                  "matched_fingers": finger_scores})
                 if agg_score > best_agg:
@@ -563,27 +526,14 @@ def verify_slap_endpoint():
                                 "error": f"No slap enrollment for uid={uid}"}), 404
             name = rows[0]["name"]
 
-            matched_fingers = []
-            all_scores = []
-            for f in fingers:
-                s, mpos, _ = _best_finger_match(
-                    f["minutiae"],
-                    [{"finger_position": r["finger_position"],
-                      "minutiae_json": r["minutiae_json"]} for r in rows],
-                    probe_position=f["finger_position"])
-                all_scores.append(s)
-                if s > 0.0:
-                    matched_fingers.append({
-                        "probe_position": f["finger_position"],
-                        "matched_position": mpos,
-                        "confidence": round(s, 5),
-                    })
-
-            if not all_scores:
-                score = 0.0
-            else:
-                top = sorted(all_scores, reverse=True)[:2]
-                score = sum(top) / len(top)
+            # Shared aggregation from slap_matching.py — was duplicated here
+            # using `all_scores` (includes zero-scoring fingers before taking
+            # top-2), which silently dilutes a genuine match whenever any
+            # presented finger doesn't match anything (bug.md #8). Fixed to
+            # use the same consolidated logic authenticate_slap_v2 now uses.
+            user_rows = [{"finger_position": r["finger_position"],
+                         "minutiae_json": r["minutiae_json"]} for r in rows]
+            score, matched_fingers = score_against_user(fingers, user_rows)
             matched = score >= MATCH_THRESH
             avg_conf = (sum(m["confidence"] for m in matched_fingers)
                         / max(1, len(matched_fingers)))
@@ -730,28 +680,19 @@ def authenticate_slap_v2():
                      "name": r["name"],
                      "minutiae_json": r["minutiae_json"]})
 
+            # Shared aggregation from slap_matching.py — was duplicated here as
+            # its own, still-uses-_best_finger_match-only loop, missing the
+            # top-2-of-nonzero-scores consolidation (bug.md #8) even though
+            # that fix was written this same session. Fixed to actually use it.
             best_uid = None
             best_name = None
             best_agg = 0.0
             best_matches = []
             per_user = []
             for uid, user_rows in by_uid.items():
-                finger_scores = []
-                matched_positions = []
-                for f in fingers:
-                    s, mpos, _per = _best_finger_match(
-                        f["minutiae"], user_rows, probe_position=f["finger_position"])
-                    if s > 0.0:
-                        finger_scores.append({
-                            "probe_position": f["finger_position"],
-                            "matched_position": mpos,
-                            "confidence": round(s, 5),
-                        })
-                        matched_positions.append(s)
-                if not matched_positions:
+                agg_score, finger_scores = score_against_user(fingers, user_rows)
+                if not finger_scores:
                     continue
-                top = sorted(matched_positions, reverse=True)[:2]
-                agg_score = sum(top) / len(top)
                 per_user.append({"uid": uid, "agg_score": round(agg_score, 5),
                                  "matched_fingers": finger_scores})
                 if agg_score > best_agg:
@@ -837,27 +778,14 @@ def verify_slap_v2():
                                 "error": f"No slap enrollment for uid={uid}"}), 404
             name = rows[0]["name"]
 
-            matched_fingers = []
-            all_scores = []
-            for f in fingers:
-                s, mpos, _ = _best_finger_match(
-                    f["minutiae"],
-                    [{"finger_position": r["finger_position"],
-                      "minutiae_json": r["minutiae_json"]} for r in rows],
-                    probe_position=f["finger_position"])
-                all_scores.append(s)
-                if s > 0.0:
-                    matched_fingers.append({
-                        "probe_position": f["finger_position"],
-                        "matched_position": mpos,
-                        "confidence": round(s, 5),
-                    })
-
-            if not all_scores:
-                score = 0.0
-            else:
-                top = sorted(all_scores, reverse=True)[:2]
-                score = sum(top) / len(top)
+            # Shared aggregation from slap_matching.py — was duplicated here
+            # using `all_scores` (includes zero-scoring fingers before taking
+            # top-2), which silently dilutes a genuine match whenever any
+            # presented finger doesn't match anything (bug.md #8). Fixed to
+            # use the same consolidated logic authenticate_slap_v2 now uses.
+            user_rows = [{"finger_position": r["finger_position"],
+                         "minutiae_json": r["minutiae_json"]} for r in rows]
+            score, matched_fingers = score_against_user(fingers, user_rows)
             matched = score >= MATCH_THRESH
             avg_conf = (sum(m["confidence"] for m in matched_fingers)
                         / max(1, len(matched_fingers)))
@@ -925,7 +853,14 @@ def export_fir_slap():
 
                 normalised, norm_info = fir.normalize_to_500dpi(preprocessed,
                                                                  source_dpi=source_dpi)
-                record = fir.encode_fir(normalised, finger_position=d["iso_code"])
+                # iso_code is None for a detected finger beyond the 4-slot
+                # SLAP_ORDER/finger_order list (a 5th blob, stray detection,
+                # etc.) — fir.py's own FINGER_POSITIONS defines 0 as "unknown"
+                # for exactly this case; fall back to it instead of passing
+                # None into encode_fir()'s int range check, which would raise
+                # a raw TypeError instead of a clean, expected FIRError.
+                fir_position = d["iso_code"] if d["iso_code"] is not None else 0
+                record = fir.encode_fir(normalised, finger_position=fir_position)
                 # Decode our own output before returning it, same as /export_fir —
                 # a record that will not parse is worse than no record.
                 parsed = fir.decode_fir(record)

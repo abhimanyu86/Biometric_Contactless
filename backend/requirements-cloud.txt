@@ -6,9 +6,16 @@
 # Zero-DCE/labtool/benchmark.py need — none of them run in this process. See the
 # split table in the architecture plan for the full reasoning.
 #
-# networkx is likewise excluded — it's only pulled in by one of nine bake-off
-# matching candidates (algorithms/networkx_graph.py), not the shipped default
-# ("modern") matching.py actually uses.
+# networkx IS needed, despite matching.py only using "legacy" in production:
+# matching.py imports the entire algorithms/ package unconditionally at module
+# load time (to populate its algorithm registry), and algorithms/networkx_graph.py
+# does a bare `import networkx` — so it's a real import-time dependency of
+# matching.py regardless of which algorithm ever actually gets selected at
+# runtime. It happens to already be pulled in transitively by torch today
+# (confirmed: `pip show networkx` reports "Required-by: torch"), which is why
+# this was previously omitted without anything breaking — but that's an
+# implicit, unpinned dependency this file shouldn't rely on staying true across
+# a future torch version bump. Pinning it explicitly here.
 
 # torch's default PyPI wheel bundles full CUDA/cuDNN (~4GB of nvidia-* packages)
 # for GPU support this service never uses — this VM has no GPU. The +cpu build
@@ -22,3 +29,4 @@ scipy>=1.11.0
 torch==2.12.0+cpu
 opencv-python-headless==4.9.0.80
 gunicorn>=21.2.0
+networkx>=3.0

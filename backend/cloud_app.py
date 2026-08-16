@@ -20,7 +20,6 @@ Routes are the SAME /v2/* endpoints already built and tested in app.py/slap_app.
 — moved here, not duplicated, so there is exactly one implementation of each.
 """
 
-import base64
 import json
 import os
 import sqlite3
@@ -372,26 +371,28 @@ def enroll_slap_v2():
         labels = label_by_order(len(imgs), hand_side, _parse_finger_order())
 
         con = sqlite3.connect(SLAP_DB)
-        now = datetime.utcnow().isoformat()
-        saved = []
-        for img, label in zip(imgs, labels):
-            minutiae = detect_minutiae(img)
-            con.execute(
-                """INSERT OR REPLACE INTO slap_templates
-                   (uid,name,batch,finger_position,iso_code,minutiae_count,
-                    template_b64,minutiae_json,created_at)
-                   VALUES (?,?,?,?,?,?,?,?,?)""",
-                (uid, name, batch, label["finger_position"], label["iso_code"],
-                 len(minutiae), "",  # template_b64 (ISO 19794-2 FMR) — not built
-                 json.dumps(minutiae), now),                                   # cloud-side yet; minutiae_json is
-            )                                                                  # what matching actually reads.
-            saved.append({
-                "finger_position": label["finger_position"],
-                "iso_code": label["iso_code"],
-                "minutiae_count": len(minutiae),
-            })
-        con.commit()
-        con.close()
+        try:
+            now = datetime.utcnow().isoformat()
+            saved = []
+            for img, label in zip(imgs, labels):
+                minutiae = detect_minutiae(img)
+                con.execute(
+                    """INSERT OR REPLACE INTO slap_templates
+                       (uid,name,batch,finger_position,iso_code,minutiae_count,
+                        template_b64,minutiae_json,created_at)
+                       VALUES (?,?,?,?,?,?,?,?,?)""",
+                    (uid, name, batch, label["finger_position"], label["iso_code"],
+                     len(minutiae), "",  # template_b64 (ISO 19794-2 FMR) — not built
+                     json.dumps(minutiae), now),                                   # cloud-side yet; minutiae_json is
+                )                                                                  # what matching actually reads.
+                saved.append({
+                    "finger_position": label["finger_position"],
+                    "iso_code": label["iso_code"],
+                    "minutiae_count": len(minutiae),
+                })
+            con.commit()
+        finally:
+            con.close()
 
         return jsonify({
             "success": True,

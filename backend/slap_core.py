@@ -367,8 +367,19 @@ def _class_agnostic_nms(dets, iou_thresh=0.5):
 # STAGE: LIVENESS  (faithful copy)
 # ══════════════════════════════════════════════════════════════════════════════
 def check_liveness(cropped_bgr):
+    # Fail CLOSED, matching app.py's check_liveness. This used to return
+    # is_live=True when the model was absent, which silently defeated every
+    # liveness gate that depends on this function — including enroll_slap's.
+    # ALLOW_LIVENESS_BYPASS exists only to exercise the pipeline locally
+    # without the weights; it must never be set in a deployed environment.
     if "liveness" not in global_models:
-        return {"is_live": True, "confidence": 1.0, "note": "model_not_loaded"}
+        bypass = os.environ.get("ALLOW_LIVENESS_BYPASS") == "1"
+        return {
+            "is_live": bypass,
+            "confidence": 0.0,
+            "note": "model_not_loaded_bypassed" if bypass else "model_not_loaded",
+            "error": None if bypass else "liveness model unavailable; refusing to pass",
+        }
     img_rgb = cv2.cvtColor(cropped_bgr, cv2.COLOR_BGR2RGB)
     img_r   = cv2.resize(img_rgb, (LIVENESS_IMG_SIZE, LIVENESS_IMG_SIZE))
     inp     = img_r.astype(np.float32) / 255.0
