@@ -39,12 +39,13 @@
 #include "Noise/n_noise.h"
 #include "Noise/n_cv_type_converter.h"
 
-#include <QtGui/QApplication>
+#include <QApplication>
 #include <QDir>
-#include <QtXml/QDomDocument>
+#include <QDomDocument>
 #include <QTextStream>
 #include <QMessageBox>
 #include <iostream>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <fstream>
 #include <time.h>

@@ -35,18 +35,9 @@
 #include "global.h"
 #include "Noise/global.h"
 
-#include <QtGui/QApplication>
-#include <QtGui/QWindowsStyle>
-//#include <QtGui/QWindowsVistaStyle>
-//#include <QtGui/QMotifStyle>
-//#include <QtGui/QPlastiqueStyle>
-//#include <QtGui/QWindowsXPStyle>
-#include <QtGui/QCleanlooksStyle>
-#include <QLayout>
-#include <QPixmap>
-#include <QSplashScreen>
-#include "mainwindow.h"
+#include <QApplication>
 
+#include "threading.h"
 #include "cv_type_converter.h"
 
 #include <fstream>
@@ -54,7 +45,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <string.h>
-#include <QtXml/QDomDocument>
+#include <QDomDocument>
 #include <QTextStream>
 #include <QFile>
 #include <time.h>
@@ -422,7 +413,7 @@ void processArgs(int argc, char **arg) {
   Loads noise blobs and filter banks.
 */
 
-void load_filter_blobs(MainWindow* w) {
+void load_filter_blobs(QWidget* w) {
     int freq_ind, orient_ind;
     //char s1[50];
     max_filter_size = 0;
@@ -568,43 +559,10 @@ int main(int argc, char *argv[])
 {
    if(argc == 1)
     {
-#ifdef WIN32
-       HWND hWnd = GetConsoleWindow();
-       ShowWindow(hWnd, SW_HIDE );
-#endif
-
-       // Anguli in GUI mode
-        is_GUI = true;
-        QApplication a(argc, argv);
-        //a.setStyle("motif");
-        a.setStyle(new QWindowsStyle);
-        //QPalette palet = a.palette();
-        a.setStyleSheet("QToolTip {\
-            border: 1px solid darkgray;\
-            padding: 2px;\
-            border-radius: 5px;\
-            opacity: 200;\
-            background-color: gray;\
-            color: white; \
-        }");
-        
-        
-        //a.setStyle(new QMotifStyle);
-        //a.setStyle(new QPlastiqueStyle);
-        //a.setStyle(new QWindowsVistaStyle);
-        //a.setStyle(new QCleanlooksStyle);
-
-        QPixmap pixmap(":images/Images/splash_screen.png");
-        QSplashScreen splash(pixmap);
-        splash.show();
-        MainWindow w;
-        w.setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint| Qt::WindowSystemMenuHint);
-        initialize();
-        load_filter_blobs(&w);
-        //sleep(6);
-        w.show();
-        splash.finish(&w);
-        return a.exec();
+        // GUI mode intentionally not built in this headless port -- see
+        // syncoflinger/anguli/BUILD.md. Always invoke with CLI arguments.
+        show_help();
+        return 0;
     }
     else
     {
