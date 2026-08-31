@@ -1,0 +1,8 @@
+# Data assets and prebuilt binaries bundled with the Anguli source download.
+# Not our code, large (180MB+/20k files combined), and re-obtainable from the
+# original source archive — see BUILD.md. Same convention this project already
+# uses for gitignored model weights.
+Filterbank/
+Lib/
+Densitymaps/
+noise_blob/
