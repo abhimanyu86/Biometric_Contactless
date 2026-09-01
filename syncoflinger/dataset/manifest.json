@@ -1,0 +1,452 @@
+[
+  {
+    "name": "finger01_high_01",
+    "finger_id": "finger01",
+    "base_fingerprint": "1.png",
+    "quality": "high",
+    "image": "images/finger01_high_01.png",
+    "minutiae": "minutiae/finger01_high_01.json",
+    "minutiae_count": 42
+  },
+  {
+    "name": "finger01_high_02",
+    "finger_id": "finger01",
+    "base_fingerprint": "1.png",
+    "quality": "high",
+    "image": "images/finger01_high_02.png",
+    "minutiae": "minutiae/finger01_high_02.json",
+    "minutiae_count": 42
+  },
+  {
+    "name": "finger01_medium_03",
+    "finger_id": "finger01",
+    "base_fingerprint": "1.png",
+    "quality": "medium",
+    "image": "images/finger01_medium_03.png",
+    "minutiae": "minutiae/finger01_medium_03.json",
+    "minutiae_count": 42
+  },
+  {
+    "name": "finger01_medium_04",
+    "finger_id": "finger01",
+    "base_fingerprint": "1.png",
+    "quality": "medium",
+    "image": "images/finger01_medium_04.png",
+    "minutiae": "minutiae/finger01_medium_04.json",
+    "minutiae_count": 42
+  },
+  {
+    "name": "finger01_low_05",
+    "finger_id": "finger01",
+    "base_fingerprint": "1.png",
+    "quality": "low",
+    "image": "images/finger01_low_05.png",
+    "minutiae": "minutiae/finger01_low_05.json",
+    "minutiae_count": 42
+  },
+  {
+    "name": "finger02_high_01",
+    "finger_id": "finger02",
+    "base_fingerprint": "2.png",
+    "quality": "high",
+    "image": "images/finger02_high_01.png",
+    "minutiae": "minutiae/finger02_high_01.json",
+    "minutiae_count": 48
+  },
+  {
+    "name": "finger02_high_02",
+    "finger_id": "finger02",
+    "base_fingerprint": "2.png",
+    "quality": "high",
+    "image": "images/finger02_high_02.png",
+    "minutiae": "minutiae/finger02_high_02.json",
+    "minutiae_count": 48
+  },
+  {
+    "name": "finger02_medium_03",
+    "finger_id": "finger02",
+    "base_fingerprint": "2.png",
+    "quality": "medium",
+    "image": "images/finger02_medium_03.png",
+    "minutiae": "minutiae/finger02_medium_03.json",
+    "minutiae_count": 48
+  },
+  {
+    "name": "finger02_medium_04",
+    "finger_id": "finger02",
+    "base_fingerprint": "2.png",
+    "quality": "medium",
+    "image": "images/finger02_medium_04.png",
+    "minutiae": "minutiae/finger02_medium_04.json",
+    "minutiae_count": 48
+  },
+  {
+    "name": "finger02_low_05",
+    "finger_id": "finger02",
+    "base_fingerprint": "2.png",
+    "quality": "low",
+    "image": "images/finger02_low_05.png",
+    "minutiae": "minutiae/finger02_low_05.json",
+    "minutiae_count": 48
+  },
+  {
+    "name": "finger03_high_01",
+    "finger_id": "finger03",
+    "base_fingerprint": "3.png",
+    "quality": "high",
+    "image": "images/finger03_high_01.png",
+    "minutiae": "minutiae/finger03_high_01.json",
+    "minutiae_count": 38
+  },
+  {
+    "name": "finger03_high_02",
+    "finger_id": "finger03",
+    "base_fingerprint": "3.png",
+    "quality": "high",
+    "image": "images/finger03_high_02.png",
+    "minutiae": "minutiae/finger03_high_02.json",
+    "minutiae_count": 38
+  },
+  {
+    "name": "finger03_medium_03",
+    "finger_id": "finger03",
+    "base_fingerprint": "3.png",
+    "quality": "medium",
+    "image": "images/finger03_medium_03.png",
+    "minutiae": "minutiae/finger03_medium_03.json",
+    "minutiae_count": 38
+  },
+  {
+    "name": "finger03_medium_04",
+    "finger_id": "finger03",
+    "base_fingerprint": "3.png",
+    "quality": "medium",
+    "image": "images/finger03_medium_04.png",
+    "minutiae": "minutiae/finger03_medium_04.json",
+    "minutiae_count": 38
+  },
+  {
+    "name": "finger03_low_05",
+    "finger_id": "finger03",
+    "base_fingerprint": "3.png",
+    "quality": "low",
+    "image": "images/finger03_low_05.png",
+    "minutiae": "minutiae/finger03_low_05.json",
+    "minutiae_count": 38
+  },
+  {
+    "name": "finger04_high_01",
+    "finger_id": "finger04",
+    "base_fingerprint": "4.png",
+    "quality": "high",
+    "image": "images/finger04_high_01.png",
+    "minutiae": "minutiae/finger04_high_01.json",
+    "minutiae_count": 46
+  },
+  {
+    "name": "finger04_high_02",
+    "finger_id": "finger04",
+    "base_fingerprint": "4.png",
+    "quality": "high",
+    "image": "images/finger04_high_02.png",
+    "minutiae": "minutiae/finger04_high_02.json",
+    "minutiae_count": 46
+  },
+  {
+    "name": "finger04_medium_03",
+    "finger_id": "finger04",
+    "base_fingerprint": "4.png",
+    "quality": "medium",
+    "image": "images/finger04_medium_03.png",
+    "minutiae": "minutiae/finger04_medium_03.json",
+    "minutiae_count": 46
+  },
+  {
+    "name": "finger04_medium_04",
+    "finger_id": "finger04",
+    "base_fingerprint": "4.png",
+    "quality": "medium",
+    "image": "images/finger04_medium_04.png",
+    "minutiae": "minutiae/finger04_medium_04.json",
+    "minutiae_count": 46
+  },
+  {
+    "name": "finger04_low_05",
+    "finger_id": "finger04",
+    "base_fingerprint": "4.png",
+    "quality": "low",
+    "image": "images/finger04_low_05.png",
+    "minutiae": "minutiae/finger04_low_05.json",
+    "minutiae_count": 46
+  },
+  {
+    "name": "finger05_high_01",
+    "finger_id": "finger05",
+    "base_fingerprint": "5.png",
+    "quality": "high",
+    "image": "images/finger05_high_01.png",
+    "minutiae": "minutiae/finger05_high_01.json",
+    "minutiae_count": 54
+  },
+  {
+    "name": "finger05_high_02",
+    "finger_id": "finger05",
+    "base_fingerprint": "5.png",
+    "quality": "high",
+    "image": "images/finger05_high_02.png",
+    "minutiae": "minutiae/finger05_high_02.json",
+    "minutiae_count": 54
+  },
+  {
+    "name": "finger05_medium_03",
+    "finger_id": "finger05",
+    "base_fingerprint": "5.png",
+    "quality": "medium",
+    "image": "images/finger05_medium_03.png",
+    "minutiae": "minutiae/finger05_medium_03.json",
+    "minutiae_count": 54
+  },
+  {
+    "name": "finger05_medium_04",
+    "finger_id": "finger05",
+    "base_fingerprint": "5.png",
+    "quality": "medium",
+    "image": "images/finger05_medium_04.png",
+    "minutiae": "minutiae/finger05_medium_04.json",
+    "minutiae_count": 54
+  },
+  {
+    "name": "finger05_low_05",
+    "finger_id": "finger05",
+    "base_fingerprint": "5.png",
+    "quality": "low",
+    "image": "images/finger05_low_05.png",
+    "minutiae": "minutiae/finger05_low_05.json",
+    "minutiae_count": 54
+  },
+  {
+    "name": "finger06_high_01",
+    "finger_id": "finger06",
+    "base_fingerprint": "6.png",
+    "quality": "high",
+    "image": "images/finger06_high_01.png",
+    "minutiae": "minutiae/finger06_high_01.json",
+    "minutiae_count": 49
+  },
+  {
+    "name": "finger06_high_02",
+    "finger_id": "finger06",
+    "base_fingerprint": "6.png",
+    "quality": "high",
+    "image": "images/finger06_high_02.png",
+    "minutiae": "minutiae/finger06_high_02.json",
+    "minutiae_count": 49
+  },
+  {
+    "name": "finger06_medium_03",
+    "finger_id": "finger06",
+    "base_fingerprint": "6.png",
+    "quality": "medium",
+    "image": "images/finger06_medium_03.png",
+    "minutiae": "minutiae/finger06_medium_03.json",
+    "minutiae_count": 49
+  },
+  {
+    "name": "finger06_medium_04",
+    "finger_id": "finger06",
+    "base_fingerprint": "6.png",
+    "quality": "medium",
+    "image": "images/finger06_medium_04.png",
+    "minutiae": "minutiae/finger06_medium_04.json",
+    "minutiae_count": 49
+  },
+  {
+    "name": "finger06_low_05",
+    "finger_id": "finger06",
+    "base_fingerprint": "6.png",
+    "quality": "low",
+    "image": "images/finger06_low_05.png",
+    "minutiae": "minutiae/finger06_low_05.json",
+    "minutiae_count": 49
+  },
+  {
+    "name": "finger07_high_01",
+    "finger_id": "finger07",
+    "base_fingerprint": "7.png",
+    "quality": "high",
+    "image": "images/finger07_high_01.png",
+    "minutiae": "minutiae/finger07_high_01.json",
+    "minutiae_count": 65
+  },
+  {
+    "name": "finger07_high_02",
+    "finger_id": "finger07",
+    "base_fingerprint": "7.png",
+    "quality": "high",
+    "image": "images/finger07_high_02.png",
+    "minutiae": "minutiae/finger07_high_02.json",
+    "minutiae_count": 65
+  },
+  {
+    "name": "finger07_medium_03",
+    "finger_id": "finger07",
+    "base_fingerprint": "7.png",
+    "quality": "medium",
+    "image": "images/finger07_medium_03.png",
+    "minutiae": "minutiae/finger07_medium_03.json",
+    "minutiae_count": 65
+  },
+  {
+    "name": "finger07_medium_04",
+    "finger_id": "finger07",
+    "base_fingerprint": "7.png",
+    "quality": "medium",
+    "image": "images/finger07_medium_04.png",
+    "minutiae": "minutiae/finger07_medium_04.json",
+    "minutiae_count": 65
+  },
+  {
+    "name": "finger07_low_05",
+    "finger_id": "finger07",
+    "base_fingerprint": "7.png",
+    "quality": "low",
+    "image": "images/finger07_low_05.png",
+    "minutiae": "minutiae/finger07_low_05.json",
+    "minutiae_count": 65
+  },
+  {
+    "name": "finger08_high_01",
+    "finger_id": "finger08",
+    "base_fingerprint": "8.png",
+    "quality": "high",
+    "image": "images/finger08_high_01.png",
+    "minutiae": "minutiae/finger08_high_01.json",
+    "minutiae_count": 57
+  },
+  {
+    "name": "finger08_high_02",
+    "finger_id": "finger08",
+    "base_fingerprint": "8.png",
+    "quality": "high",
+    "image": "images/finger08_high_02.png",
+    "minutiae": "minutiae/finger08_high_02.json",
+    "minutiae_count": 57
+  },
+  {
+    "name": "finger08_medium_03",
+    "finger_id": "finger08",
+    "base_fingerprint": "8.png",
+    "quality": "medium",
+    "image": "images/finger08_medium_03.png",
+    "minutiae": "minutiae/finger08_medium_03.json",
+    "minutiae_count": 57
+  },
+  {
+    "name": "finger08_medium_04",
+    "finger_id": "finger08",
+    "base_fingerprint": "8.png",
+    "quality": "medium",
+    "image": "images/finger08_medium_04.png",
+    "minutiae": "minutiae/finger08_medium_04.json",
+    "minutiae_count": 57
+  },
+  {
+    "name": "finger08_low_05",
+    "finger_id": "finger08",
+    "base_fingerprint": "8.png",
+    "quality": "low",
+    "image": "images/finger08_low_05.png",
+    "minutiae": "minutiae/finger08_low_05.json",
+    "minutiae_count": 57
+  },
+  {
+    "name": "finger09_high_01",
+    "finger_id": "finger09",
+    "base_fingerprint": "9.png",
+    "quality": "high",
+    "image": "images/finger09_high_01.png",
+    "minutiae": "minutiae/finger09_high_01.json",
+    "minutiae_count": 57
+  },
+  {
+    "name": "finger09_high_02",
+    "finger_id": "finger09",
+    "base_fingerprint": "9.png",
+    "quality": "high",
+    "image": "images/finger09_high_02.png",
+    "minutiae": "minutiae/finger09_high_02.json",
+    "minutiae_count": 57
+  },
+  {
+    "name": "finger09_medium_03",
+    "finger_id": "finger09",
+    "base_fingerprint": "9.png",
+    "quality": "medium",
+    "image": "images/finger09_medium_03.png",
+    "minutiae": "minutiae/finger09_medium_03.json",
+    "minutiae_count": 57
+  },
+  {
+    "name": "finger09_medium_04",
+    "finger_id": "finger09",
+    "base_fingerprint": "9.png",
+    "quality": "medium",
+    "image": "images/finger09_medium_04.png",
+    "minutiae": "minutiae/finger09_medium_04.json",
+    "minutiae_count": 57
+  },
+  {
+    "name": "finger09_low_05",
+    "finger_id": "finger09",
+    "base_fingerprint": "9.png",
+    "quality": "low",
+    "image": "images/finger09_low_05.png",
+    "minutiae": "minutiae/finger09_low_05.json",
+    "minutiae_count": 57
+  },
+  {
+    "name": "finger10_high_01",
+    "finger_id": "finger10",
+    "base_fingerprint": "10.png",
+    "quality": "high",
+    "image": "images/finger10_high_01.png",
+    "minutiae": "minutiae/finger10_high_01.json",
+    "minutiae_count": 59
+  },
+  {
+    "name": "finger10_high_02",
+    "finger_id": "finger10",
+    "base_fingerprint": "10.png",
+    "quality": "high",
+    "image": "images/finger10_high_02.png",
+    "minutiae": "minutiae/finger10_high_02.json",
+    "minutiae_count": 59
+  },
+  {
+    "name": "finger10_medium_03",
+    "finger_id": "finger10",
+    "base_fingerprint": "10.png",
+    "quality": "medium",
+    "image": "images/finger10_medium_03.png",
+    "minutiae": "minutiae/finger10_medium_03.json",
+    "minutiae_count": 59
+  },
+  {
+    "name": "finger10_medium_04",
+    "finger_id": "finger10",
+    "base_fingerprint": "10.png",
+    "quality": "medium",
+    "image": "images/finger10_medium_04.png",
+    "minutiae": "minutiae/finger10_medium_04.json",
+    "minutiae_count": 59
+  },
+  {
+    "name": "finger10_low_05",
+    "finger_id": "finger10",
+    "base_fingerprint": "10.png",
+    "quality": "low",
+    "image": "images/finger10_low_05.png",
+    "minutiae": "minutiae/finger10_low_05.json",
+    "minutiae_count": 59
+  }
+]

@@ -253,6 +253,31 @@ def apply_environmental(img, rng=None, noise_level=1.0, minutiae=None):
     color_jitter = rng.uniform(0.95, 1.05, size=3) if is_color else 1.0
     lit = blended * (0.8 + 0.2 * lit_mask) * brightness_jitter * color_jitter
 
+    # Contrast floor: skin-tone choice, shadow angle, and brightness jitter
+    # can compound into a nearly-unreadable ridge pattern for unlucky
+    # parameter draws (measured std as low as 16 vs. a ~46 median across a
+    # 50-image test batch -- some "high quality" draws were less readable
+    # than "low quality" ones). A capture this washed out would fail real
+    # QC (blur/brightness) before ever reaching an extractor, so leaving it
+    # in as labeled training data would be actively misleading. Stretch
+    # luminance contrast toward a floor, same luminance-ratio technique as
+    # the ridge-inversion step above so skin hue is preserved -- this
+    # mirrors what this project's own real pipeline does for genuinely
+    # low-contrast captures (Zero-DCE/histogram equalization).
+    lit_luma = cv2.cvtColor(np.clip(lit, 0, 255).astype(np.uint8), cv2.COLOR_BGR2GRAY).astype(np.float32) \
+        if is_color else lit
+    current_std = lit_luma.std()
+    target_std = 45.0
+    if current_std < target_std:
+        stretch = min(target_std / max(current_std, 1e-3), 2.5)  # cap to avoid over-amplifying noise
+        mean = lit_luma.mean()
+        stretched_luma = mean + (lit_luma - mean) * stretch
+        if is_color:
+            ratio = ((stretched_luma + 1.0) / (lit_luma + 1.0))[..., None]
+            lit = lit * ratio
+        else:
+            lit = stretched_luma
+
     # Camera noise, heavier in darker (shadowed) regions.
     noise_amount = (1.0 - lit_mask) * 18.0 * noise_level + 4.0 * noise_level
     noise = rng.normal(0, 1, base.shape).astype(np.float32) * noise_amount
