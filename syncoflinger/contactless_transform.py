@@ -67,12 +67,15 @@ def _simulate_rolling(img, max_degrees=7.0, rng=None):
     vectors (a shear-like stretch/compress) to simulate rolling. A small
     real rotation achieves the same qualitative "slight tilt between
     captures" effect with far less code -- a deliberate simplification,
-    not an oversight."""
+    not an oversight.
+
+    Returns (image, M) -- M is needed to propagate minutiae through the
+    same transform (see minutiae_ground_truth.warp_points_affine)."""
     rng = rng or np.random.default_rng()
     angle = rng.uniform(-max_degrees, max_degrees)
     h, w = img.shape[:2]
     M = cv2.getRotationMatrix2D((w / 2.0, h / 2.0), angle, 1.0)
-    return cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REPLICATE)
+    return cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REPLICATE), M
 
 
 def _thin_and_blur(img, thin_kernel=3, blur_sigma=1.2, border_blur_sigma=6.0):
@@ -98,11 +101,25 @@ def _thin_and_blur(img, thin_kernel=3, blur_sigma=1.2, border_blur_sigma=6.0):
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
-def contactless_capture_simulation(r_cb, rng=None):
-    """r_cl = d(r_cb) -- Stage 1 end to end."""
+def contactless_capture_simulation(r_cb, rng=None, minutiae=None):
+    """r_cl = d(r_cb) -- Stage 1 end to end.
+
+    If `minutiae` (list of {x,y,direction,type} from r_cb) is given,
+    propagates them through the same warp + rotation the image goes
+    through and returns (image, transformed_minutiae) instead of just
+    the image. Thinning/blur are intensity-only, so minutiae positions
+    pass through those two steps unchanged."""
     warped = _border_weighted_warp(r_cb)
-    rolled = _simulate_rolling(warped, rng=rng)
-    return _thin_and_blur(rolled)
+    rolled, M = _simulate_rolling(warped, rng=rng)
+    out = _thin_and_blur(rolled)
+
+    if minutiae is None:
+        return out
+
+    from minutiae_ground_truth import warp_points_border_weighted, warp_points_affine
+    m = warp_points_border_weighted(minutiae, r_cb.shape)
+    m = warp_points_affine(m, M)
+    return out, m
 
 
 # ---------------------------------------------------------------------------
@@ -193,10 +210,14 @@ def _add_dirt(img, rng, n_specks=(3, 10)):
     return out
 
 
-def apply_environmental(img, rng=None, noise_level=1.0):
+def apply_environmental(img, rng=None, noise_level=1.0, minutiae=None):
     """c_e_i -- one mated sample's worth of environmental variation:
     brightness/shadow, ridge-line inversion under shadow, dirt, camera
-    noise, slight rotation/scale (segmentation-imprecision simulation)."""
+    noise, slight rotation/scale (segmentation-imprecision simulation).
+
+    If `minutiae` is given, returns (image, transformed_minutiae) --
+    only the final rotation/scale step is geometric; everything else
+    here is intensity-only and leaves positions unchanged."""
     rng = rng or np.random.default_rng()
     h, w = img.shape[:2]
     shadow = _shadow_mask(img.shape, rng)
@@ -246,7 +267,11 @@ def apply_environmental(img, rng=None, noise_level=1.0):
     M = cv2.getRotationMatrix2D((w / 2.0, h / 2.0), angle, scale)
     out = cv2.warpAffine(out, M, (w, h), borderMode=cv2.BORDER_REPLICATE)
 
-    return out
+    if minutiae is None:
+        return out
+
+    from minutiae_ground_truth import warp_points_affine
+    return out, warp_points_affine(minutiae, M)
 
 
 # ---------------------------------------------------------------------------
@@ -260,20 +285,40 @@ QUALITY_PRESETS = {
 }
 
 
-def generate_contactless_samples(sfinge_image_path, n_samples=5, quality="high", seed=None):
+def generate_contactless_samples(sfinge_image_path, n_samples=5, quality="high", seed=None,
+                                  with_ground_truth=True):
     """f_i = r_cl + c_s + c_e_i for i in 1..n_samples, from one Anguli/SFinGe
-    ridge pattern. Returns a list of BGR numpy images (mated samples of one
-    synthetic contactless finger)."""
+    ridge pattern.
+
+    If with_ground_truth (default): extracts minutiae from r_cb (see
+    minutiae_ground_truth.extract_minutiae_skeleton) and propagates them
+    through every geometric transform alongside the image. Returns a list
+    of (image, minutiae) tuples -- each sample's minutiae correctly
+    aligned to *that* sample's framing/rotation, not just r_cb's.
+    If False, returns a plain list of images (old behavior)."""
     rng = np.random.default_rng(seed)
     r_cb = cv2.imread(sfinge_image_path, cv2.IMREAD_GRAYSCALE)
     if r_cb is None:
         raise FileNotFoundError(sfinge_image_path)
 
-    r_cl = contactless_capture_simulation(r_cb, rng=rng)
-    subject_base = apply_subject_characteristics(r_cl, rng=rng)
-
     preset = QUALITY_PRESETS[quality]
-    return [apply_environmental(subject_base, rng=rng, **preset) for _ in range(n_samples)]
+
+    if not with_ground_truth:
+        r_cl = contactless_capture_simulation(r_cb, rng=rng)
+        subject_base = apply_subject_characteristics(r_cl, rng=rng)
+        return [apply_environmental(subject_base, rng=rng, **preset) for _ in range(n_samples)]
+
+    from minutiae_ground_truth import extract_minutiae_skeleton
+    minutiae_r_cb = extract_minutiae_skeleton(r_cb)
+
+    r_cl, minutiae_r_cl = contactless_capture_simulation(r_cb, rng=rng, minutiae=minutiae_r_cb)
+    subject_base = apply_subject_characteristics(r_cl, rng=rng)  # no geometric change
+
+    results = []
+    for _ in range(n_samples):
+        img, m = apply_environmental(subject_base, rng=rng, minutiae=minutiae_r_cl, **preset)
+        results.append((img, m))
+    return results
 
 
 if __name__ == "__main__":
@@ -285,8 +330,15 @@ if __name__ == "__main__":
     outdir = sys.argv[2] if len(sys.argv) > 2 else "syncoflinger/test_output"
     os.makedirs(outdir, exist_ok=True)
 
+    from minutiae_ground_truth import draw_minutiae
+    import json
+
     for quality in ("high", "medium", "low"):
         samples = generate_contactless_samples(src, n_samples=3, quality=quality, seed=42)
-        for i, img in enumerate(samples, 1):
+        for i, (img, minutiae) in enumerate(samples, 1):
             cv2.imwrite(os.path.join(outdir, f"{quality}_{i}.png"), img)
-    print(f"Wrote 9 samples (3 quality tiers x 3 mated samples) to {outdir}")
+            with open(os.path.join(outdir, f"{quality}_{i}_minutiae.json"), "w") as f:
+                json.dump(minutiae, f, indent=2)
+            overlay = draw_minutiae(img, minutiae)
+            cv2.imwrite(os.path.join(outdir, f"{quality}_{i}_overlay.png"), overlay)
+    print(f"Wrote 9 samples + ground-truth minutiae + overlays (3 quality tiers x 3 mated samples) to {outdir}")
