@@ -11,12 +11,20 @@ image(s) an on-device client produced, and does exactly two things to them:
     2. Matching — match_templates() (matching.py) for single-finger, or
        score_against_user() (slap_matching.py) for slap's per-finger aggregate.
 
-Also exposes a second, independent single-finger path — /v2/enroll_embedding,
-/v2/authenticate_embedding, /v2/verify_embedding — using a CNN/Siamese embedding
-matcher (embedding_matcher.py, Phase A: pretrained ResNet18 + cosine similarity,
-92.5% accuracy at EER=7.5% on the HKPU validation set, see siamese_embedding/).
-This runs alongside the minutiae flow against its own table (embedding_templates),
-not instead of it — the original endpoints and users table are unchanged.
+Also exposes a second, independent path using a CNN/Siamese embedding matcher
+(embedding_matcher.py, Phase A: pretrained ResNet18 + cosine similarity, 92.5%
+accuracy at EER=7.5% on the HKPU single-finger validation set, see
+siamese_embedding/) for both single-finger and slap:
+    - Single-finger: /v2/enroll_embedding, /v2/authenticate_embedding,
+      /v2/verify_embedding — own table (embedding_templates).
+    - Slap: /v2/enroll_slap_embedding, /v2/authenticate_slap_embedding,
+      /v2/verify_slap_embedding — own tables (slap_embedding_templates,
+      slap_embedding_auth_history), same position-constrained top-2-average
+      aggregation as the minutiae slap path (slap_embedding_matching.py mirrors
+      slap_matching.py). Slap-specific accuracy has NOT been measured -- only
+      the single-finger protocol has a validated number.
+Both run alongside the existing minutiae flow against their own tables, not
+instead of it — the original endpoints and their tables are unchanged.
 
 Nothing here loads YOLO, liveness, U2Net, or Zero-DCE — those are on-device-tier
 models this process never needs, which is the entire point of the split
@@ -42,6 +50,7 @@ from minutiae import detect_minutiae, get_minutiae_model
 from matching import match_templates
 from slap_matching import score_against_user, label_by_order, MATCH_THRESH
 from embedding_matcher import embed_image, cosine_similarity, EMBEDDING_THRESHOLD, get_embedding_model
+from slap_embedding_matching import score_against_user_embedding, EMBEDDING_SLAP_THRESHOLD
 
 app = Flask(__name__)
 CORS(app)
@@ -153,6 +162,35 @@ def init_slap_db():
     """)
     con.execute("""
         CREATE TABLE IF NOT EXISTS slap_auth_history (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid                  TEXT,
+            name                 TEXT,
+            batch                TEXT NOT NULL,
+            hand_side            TEXT,
+            success              INTEGER NOT NULL,
+            avg_confidence       REAL,
+            best_confidence      REAL,
+            matched_fingers_json TEXT,
+            created_at           TEXT NOT NULL
+        )
+    """)
+    # CNN/Siamese embedding slap path -- separate table from slap_templates,
+    # additive alongside it. Same DB file (slap.db), same key shape.
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS slap_embedding_templates (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid             TEXT NOT NULL,
+            name            TEXT,
+            batch           TEXT NOT NULL,
+            finger_position TEXT NOT NULL,
+            iso_code        INTEGER,
+            embedding_json  TEXT NOT NULL,
+            created_at      TEXT NOT NULL,
+            UNIQUE(uid, batch, finger_position)
+        )
+    """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS slap_embedding_auth_history (
             id                   INTEGER PRIMARY KEY AUTOINCREMENT,
             uid                  TEXT,
             name                 TEXT,
@@ -749,6 +787,217 @@ def verify_slap_v2():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# SLAP, CNN/SIAMESE EMBEDDING PATH — /v2/enroll_slap_embedding,
+# /v2/authenticate_slap_embedding, /v2/verify_slap_embedding
+#
+# Same request contract as the minutiae slap endpoints above (multiple images,
+# one per finger, labelled by upload order via label_by_order) and the same
+# position-constrained top-2-average aggregation (slap_embedding_matching.py),
+# just with embed_image()/cosine_similarity() standing in for
+# detect_minutiae()/match_templates(). Separate table (slap_embedding_templates,
+# same slap.db file) — nothing about the existing minutiae slap flow changes.
+#
+# Not validated for slap-specific accuracy — see slap_embedding_matching.py's
+# module docstring.
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/v2/enroll_slap_embedding", methods=["POST"])
+def enroll_slap_embedding():
+    try:
+        uid = request.form.get("uid", "").strip()
+        if not uid:
+            return jsonify({"success": False, "error": "uid required"}), 400
+        name      = request.form.get("name", "")
+        batch     = request.form.get("batch", "default")
+        hand_side = request.form.get("hand_side", "right")
+
+        imgs = _read_images_list()
+        if not imgs:
+            return jsonify({"success": False, "error": "at least one image required"}), 400
+        labels = label_by_order(len(imgs), hand_side, _parse_finger_order())
+
+        con = sqlite3.connect(SLAP_DB)
+        try:
+            now = datetime.utcnow().isoformat()
+            saved = []
+            for img, label in zip(imgs, labels):
+                embedding = embed_image(img)
+                con.execute(
+                    """INSERT OR REPLACE INTO slap_embedding_templates
+                       (uid,name,batch,finger_position,iso_code,embedding_json,created_at)
+                       VALUES (?,?,?,?,?,?,?)""",
+                    (uid, name, batch, label["finger_position"], label["iso_code"],
+                     json.dumps(embedding.tolist()), now),
+                )
+                saved.append({
+                    "finger_position": label["finger_position"],
+                    "iso_code": label["iso_code"],
+                    "embedding_dim": len(embedding),
+                })
+            con.commit()
+        finally:
+            con.close()
+
+        return jsonify({
+            "success": True,
+            "uid": uid, "name": name, "batch": batch, "hand_side": hand_side,
+            "enrolled_fingers": saved, "finger_count": len(saved),
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/v2/authenticate_slap_embedding", methods=["POST"])
+def authenticate_slap_embedding():
+    try:
+        batch = request.form.get("batch", "").strip()
+        hand_side = request.form.get("hand_side", "right")
+        if not batch:
+            return jsonify({"success": False, "error": "batch required"}), 400
+
+        imgs = _read_images_list()
+        if not imgs:
+            return jsonify({"success": False, "error": "at least one image required"}), 400
+        labels = label_by_order(len(imgs), hand_side, _parse_finger_order())
+        fingers = [{"finger_position": lbl["finger_position"],
+                    "embedding": embed_image(img)}
+                   for img, lbl in zip(imgs, labels)]
+
+        con = sqlite3.connect(SLAP_DB)
+        con.row_factory = sqlite3.Row
+        try:
+            rows = con.execute(
+                "SELECT uid, name, finger_position, embedding_json "
+                "FROM slap_embedding_templates WHERE batch = ? ORDER BY uid",
+                (batch,),
+            ).fetchall()
+            if not rows:
+                return jsonify({"success": False,
+                                "message": "No enrolled slap users in batch"}), 404
+
+            by_uid = {}
+            for r in rows:
+                by_uid.setdefault(r["uid"], []).append(
+                    {"finger_position": r["finger_position"],
+                     "name": r["name"],
+                     "embedding_json": r["embedding_json"]})
+
+            best_uid = None
+            best_name = None
+            best_agg = 0.0
+            best_matches = []
+            for uid, user_rows in by_uid.items():
+                agg_score, finger_scores = score_against_user_embedding(fingers, user_rows)
+                if agg_score > best_agg:
+                    best_agg = agg_score
+                    best_uid = uid
+                    best_name = user_rows[0]["name"]
+                    best_matches = finger_scores
+
+            success = best_agg >= EMBEDDING_SLAP_THRESHOLD and best_uid is not None
+            now = datetime.utcnow().isoformat()
+            if success:
+                avg_conf = (sum(m["confidence"] for m in best_matches)
+                            / max(1, len(best_matches)))
+                con.execute(
+                    """INSERT INTO slap_embedding_auth_history
+                    (uid,name,batch,hand_side,success,avg_confidence,best_confidence,
+                     matched_fingers_json,created_at) VALUES (?,?,?,?,?,?,?,?,?)""",
+                    (best_uid, best_name, batch, hand_side, 1,
+                     round(avg_conf, 5), round(best_agg, 5),
+                     json.dumps(best_matches), now),
+                )
+                con.commit()
+                return jsonify({
+                    "success": True,
+                    "uid": best_uid,
+                    "name": best_name,
+                    "hand_side": hand_side,
+                    "avg_confidence": round(avg_conf, 5),
+                    "confidence": round(best_agg, 5),
+                    "threshold": EMBEDDING_SLAP_THRESHOLD,
+                    "matched_fingers": best_matches,
+                })
+            else:
+                con.execute(
+                    """INSERT INTO slap_embedding_auth_history
+                    (uid,name,batch,hand_side,success,avg_confidence,best_confidence,
+                     matched_fingers_json,created_at) VALUES (?,?,?,?,?,?,?,?,?)""",
+                    (None, None, batch, hand_side, 0, 0.0, round(best_agg, 5),
+                     "[]", now),
+                )
+                con.commit()
+                return jsonify({
+                    "success": False,
+                    "message": "No match found",
+                    "confidence": round(best_agg, 5),
+                    "threshold": EMBEDDING_SLAP_THRESHOLD,
+                })
+        finally:
+            con.close()
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/v2/verify_slap_embedding", methods=["POST"])
+def verify_slap_embedding():
+    try:
+        uid = request.form.get("uid", "").strip()
+        batch = request.form.get("batch", "").strip()
+        hand_side = request.form.get("hand_side", "right")
+        if not uid or not batch:
+            return jsonify({"success": False,
+                            "error": "uid and batch required"}), 400
+
+        imgs = _read_images_list()
+        if not imgs:
+            return jsonify({"success": False, "error": "at least one image required"}), 400
+        labels = label_by_order(len(imgs), hand_side, _parse_finger_order())
+        fingers = [{"finger_position": lbl["finger_position"],
+                    "embedding": embed_image(img)}
+                   for img, lbl in zip(imgs, labels)]
+
+        con = sqlite3.connect(SLAP_DB)
+        con.row_factory = sqlite3.Row
+        try:
+            rows = con.execute(
+                "SELECT uid, name, finger_position, embedding_json "
+                "FROM slap_embedding_templates WHERE uid=? AND batch=?",
+                (uid, batch),
+            ).fetchall()
+            if not rows:
+                return jsonify({"success": False,
+                                "error": f"No slap embedding enrollment for uid={uid}"}), 404
+            name = rows[0]["name"]
+
+            user_rows = [{"finger_position": r["finger_position"],
+                         "embedding_json": r["embedding_json"]} for r in rows]
+            score, matched_fingers = score_against_user_embedding(fingers, user_rows)
+            matched = score >= EMBEDDING_SLAP_THRESHOLD
+            avg_conf = (sum(m["confidence"] for m in matched_fingers)
+                        / max(1, len(matched_fingers)))
+
+            return jsonify({
+                "success": True,
+                "matched": matched,
+                "uid": uid,
+                "name": name,
+                "hand_side": hand_side,
+                "confidence": round(score, 5),
+                "avg_confidence": round(avg_conf, 5),
+                "threshold": EMBEDDING_SLAP_THRESHOLD,
+                "matched_fingers": matched_fingers,
+            })
+        finally:
+            con.close()
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -770,9 +1019,12 @@ if __name__ == "__main__":
     print("  POST /v2/enroll_embedding        — single-finger enroll (CNN/Siamese, Phase A)")
     print("  POST /v2/authenticate_embedding  — single-finger 1:N (CNN/Siamese, Phase A)")
     print("  POST /v2/verify_embedding        — single-finger 1:1 (CNN/Siamese, Phase A)")
-    print("  POST /v2/enroll_slap        — slap enroll")
-    print("  POST /v2/authenticate_slap  — slap 1:N")
-    print("  POST /v2/verify_slap        — slap 1:1")
+    print("  POST /v2/enroll_slap                  — slap enroll (minutiae)")
+    print("  POST /v2/authenticate_slap            — slap 1:N (minutiae)")
+    print("  POST /v2/verify_slap                  — slap 1:1 (minutiae)")
+    print("  POST /v2/enroll_slap_embedding        — slap enroll (CNN/Siamese, Phase A)")
+    print("  POST /v2/authenticate_slap_embedding  — slap 1:N (CNN/Siamese, Phase A)")
+    print("  POST /v2/verify_slap_embedding        — slap 1:1 (CNN/Siamese, Phase A)")
     print("  GET  /health")
     print("=" * 60 + "\n")
     port = int(os.environ.get("PORT", 8080))

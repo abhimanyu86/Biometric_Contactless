@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements-cloud.txt
 # Application code — only what cloud_app.py actually imports.
 COPY cloud_app.py .
 COPY embedding_matcher.py .
+COPY slap_embedding_matching.py .
 COPY minutiae.py .
 COPY slap_matching.py .
 COPY matching.py .
