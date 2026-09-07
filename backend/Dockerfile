@@ -1,7 +1,9 @@
 # cloud_app.py — templatization + matching only. Deliberately does NOT build the
 # rest of backend/ into this image: no YOLO/liveness/U2Net/Zero-DCE weights, no
-# torchvision/ultralytics/tensorflow/mediapipe. Those are on-device-tier and never
-# run here — see requirements-cloud.txt for the reasoning.
+# ultralytics/tensorflow/mediapipe. Those are on-device-tier and never run here —
+# see requirements-cloud.txt for the reasoning. torchvision IS included (via
+# requirements-cloud.txt) for the CNN/Siamese embedding matcher's pretrained
+# ResNet18 — that's a cloud-tier need, not an on-device one.
 
 FROM python:3.10-slim
 
@@ -18,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements-cloud.txt
 
 # Application code — only what cloud_app.py actually imports.
 COPY cloud_app.py .
+COPY embedding_matcher.py .
 COPY minutiae.py .
 COPY slap_matching.py .
 COPY matching.py .

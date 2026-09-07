@@ -11,6 +11,13 @@ image(s) an on-device client produced, and does exactly two things to them:
     2. Matching — match_templates() (matching.py) for single-finger, or
        score_against_user() (slap_matching.py) for slap's per-finger aggregate.
 
+Also exposes a second, independent single-finger path — /v2/enroll_embedding,
+/v2/authenticate_embedding, /v2/verify_embedding — using a CNN/Siamese embedding
+matcher (embedding_matcher.py, Phase A: pretrained ResNet18 + cosine similarity,
+92.5% accuracy at EER=7.5% on the HKPU validation set, see siamese_embedding/).
+This runs alongside the minutiae flow against its own table (embedding_templates),
+not instead of it — the original endpoints and users table are unchanged.
+
 Nothing here loads YOLO, liveness, U2Net, or Zero-DCE — those are on-device-tier
 models this process never needs, which is the entire point of the split
 (see requirements-cloud.txt). app.py and slap_app.py keep the full on-device-tier
@@ -34,6 +41,7 @@ from flask_cors import CORS
 from minutiae import detect_minutiae, get_minutiae_model
 from matching import match_templates
 from slap_matching import score_against_user, label_by_order, MATCH_THRESH
+from embedding_matcher import embed_image, cosine_similarity, EMBEDDING_THRESHOLD, get_embedding_model
 
 app = Flask(__name__)
 CORS(app)
@@ -95,6 +103,32 @@ def init_db():
             matched     INTEGER,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def init_embedding_db():
+    """Separate table from `users` — the CNN/Siamese embedding path (Phase A,
+    embedding_matcher.py) is additive, not a replacement for the minutiae flow.
+    Keeping it in its own table means /v2/enroll_embedding etc. can't ever
+    corrupt or collide with the existing minutiae-based enroll/authenticate/verify."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS embedding_templates (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            name            TEXT NOT NULL,
+            uid             TEXT NOT NULL,
+            batch           TEXT NOT NULL,
+            finger_position INTEGER NOT NULL DEFAULT 0,
+            embedding_json  TEXT NOT NULL,
+            created_at      TEXT NOT NULL
+        )
+    """)
+    c.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_embedding_uid_batch_finger
+            ON embedding_templates(uid, batch, finger_position)
     """)
     conn.commit()
     conn.close()
@@ -173,10 +207,17 @@ def health():
         minutiae_ok = True
     except Exception as e:
         minutiae_ok = str(e)
+    try:
+        get_embedding_model()
+        embedding_ok = True
+    except Exception as e:
+        embedding_ok = str(e)
     return jsonify({
         "status": "ok",
         "service": "cloud-templatization-matching",
         "minutiae_model": minutiae_ok,
+        "embedding_model": embedding_ok,
+        "embedding_threshold": EMBEDDING_THRESHOLD,
     })
 
 
@@ -342,6 +383,160 @@ def verify_v2():
             "name":       name,
             "uid":        uid_db,
             "input_minutiae_count": len(input_minutiae),
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SINGLE-FINGER, CNN/SIAMESE EMBEDDING PATH — /v2/enroll_embedding,
+# /v2/authenticate_embedding, /v2/verify_embedding
+#
+# Phase A (embedding_matcher.py): pretrained ResNet18, cosine similarity, no
+# fingerprint-specific training. Runs alongside the minutiae flow above against
+# a separate table (embedding_templates) — nothing here touches `users` or the
+# existing /v2/enroll, /v2/authenticate, /v2/verify behavior.
+#
+# EMBEDDING_THRESHOLD (default 0.94) was calibrated on the HKPU lab dataset, not
+# this app's real camera captures — see embedding_matcher.py's module docstring.
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/v2/enroll_embedding", methods=["POST"])
+def enroll_embedding():
+    try:
+        name  = request.form.get("name", "").strip()
+        uid   = request.form.get("uid", "").strip()
+        batch = request.form.get("batch", "").strip()
+        if not all([name, uid, batch]):
+            return jsonify({"success": False, "error": "name, uid, batch required"}), 400
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+
+        try:
+            finger_position = int(request.form.get("finger_position", 0))
+        except ValueError:
+            return jsonify({"success": False,
+                            "error": "finger_position must be an integer 0-10"}), 400
+        if not 0 <= finger_position <= 10:
+            return jsonify({"success": False,
+                            "error": "finger_position must be 0-10"}), 400
+
+        path = _save_upload()
+        preprocessed = cv2.imread(path)
+        if preprocessed is None:
+            return jsonify({"success": False, "error": "image could not be decoded"}), 400
+
+        embedding = embed_image(preprocessed)
+
+        conn = get_connection()
+        try:
+            c = conn.cursor()
+            c.execute("""
+                INSERT INTO embedding_templates (name, uid, batch, finger_position, embedding_json, created_at)
+                VALUES (?,?,?,?,?,?)
+                ON CONFLICT(uid,batch,finger_position) DO UPDATE SET
+                    name=excluded.name, embedding_json=excluded.embedding_json, created_at=excluded.created_at
+            """, (name, uid, batch, finger_position, json.dumps(embedding.tolist()),
+                  datetime.now().isoformat()))
+            conn.commit()
+        finally:
+            conn.close()
+
+        return jsonify({"success": True, "embedding_dim": len(embedding)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/v2/authenticate_embedding", methods=["POST"])
+def authenticate_embedding():
+    try:
+        batch = request.form.get("batch", "").strip()
+        if not batch:
+            return jsonify({"success": False, "error": "batch required"}), 400
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+
+        path = _save_upload()
+        preprocessed = cv2.imread(path)
+        if preprocessed is None:
+            return jsonify({"success": False, "error": "image could not be decoded"}), 400
+
+        input_embedding = embed_image(preprocessed)
+
+        conn = get_connection()
+        try:
+            c = conn.cursor()
+            c.execute("SELECT id,name,uid,embedding_json FROM embedding_templates WHERE batch=?", (batch,))
+            templates = c.fetchall()
+        finally:
+            conn.close()
+
+        if not templates:
+            return jsonify({"success": False, "message": "No users in this batch"})
+
+        best_score = -1.0
+        best_user = None
+        for row in templates:
+            _, name, uid, emb_json = row
+            score = cosine_similarity(input_embedding, json.loads(emb_json))
+            if score > best_score:
+                best_score = score
+                best_user = (name, uid)
+
+        if not best_user or best_score < EMBEDDING_THRESHOLD:
+            return jsonify({"success": False, "message": "No match found",
+                            "confidence": round(best_score, 4),
+                            "threshold": EMBEDDING_THRESHOLD})
+
+        name, uid = best_user
+        return jsonify({"success": True, "name": name, "uid": uid,
+                        "confidence": round(best_score, 4),
+                        "threshold": EMBEDDING_THRESHOLD})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/v2/verify_embedding", methods=["POST"])
+def verify_embedding():
+    try:
+        uid   = request.form.get("uid", "").strip()
+        batch = request.form.get("batch", "").strip()
+        if not uid or not batch:
+            return jsonify({"success": False, "error": "uid and batch required"}), 400
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "image required"}), 400
+
+        path = _save_upload()
+        preprocessed = cv2.imread(path)
+        if preprocessed is None:
+            return jsonify({"success": False, "error": "image could not be decoded"}), 400
+
+        input_embedding = embed_image(preprocessed)
+
+        conn = get_connection()
+        try:
+            c = conn.cursor()
+            c.execute("SELECT name,embedding_json FROM embedding_templates WHERE uid=? AND batch=?", (uid, batch))
+            row = c.fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return jsonify({"success": False, "error": f"No user found: {uid}"}), 404
+
+        name, emb_json = row
+        score = cosine_similarity(input_embedding, json.loads(emb_json))
+        matched = score >= EMBEDDING_THRESHOLD
+
+        return jsonify({
+            "success":    True,
+            "matched":    matched,
+            "confidence": round(score, 4),
+            "threshold":  EMBEDDING_THRESHOLD,
+            "name":       name,
+            "uid":        uid,
         })
     except Exception as e:
         traceback.print_exc()
@@ -562,15 +757,19 @@ def verify_slap_v2():
 # init_db() is) silently never runs under a production WSGI server. Both are
 # idempotent (CREATE TABLE IF NOT EXISTS), so this is safe to call on every import.
 init_db()
+init_embedding_db()
 init_slap_db()
 
 if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("  SITAA cloud service — templatization + matching only")
     print("=" * 60)
-    print("  POST /v2/enroll             — single-finger enroll")
-    print("  POST /v2/authenticate       — single-finger 1:N")
-    print("  POST /v2/verify             — single-finger 1:1")
+    print("  POST /v2/enroll                  — single-finger enroll (minutiae)")
+    print("  POST /v2/authenticate            — single-finger 1:N (minutiae)")
+    print("  POST /v2/verify                  — single-finger 1:1 (minutiae)")
+    print("  POST /v2/enroll_embedding        — single-finger enroll (CNN/Siamese, Phase A)")
+    print("  POST /v2/authenticate_embedding  — single-finger 1:N (CNN/Siamese, Phase A)")
+    print("  POST /v2/verify_embedding        — single-finger 1:1 (CNN/Siamese, Phase A)")
     print("  POST /v2/enroll_slap        — slap enroll")
     print("  POST /v2/authenticate_slap  — slap 1:N")
     print("  POST /v2/verify_slap        — slap 1:1")

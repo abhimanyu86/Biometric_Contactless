@@ -11,6 +11,8 @@ backend/models/
 # Raw weight drops from Drive, staged at the repo root before sorting into backend/.
 single_finger_backend_models/
 slap_backend_models/
+siamese_embedding/checkpoints/
+siamese_embedding/embeddings_cache*.json
 
 # ── Real fingerprint photos — never commit these, wherever they land ─────────
 single_finger_images/
@@ -25,6 +27,7 @@ backend/*.pyc
 backend/**/*.pyc
 backend/uploads/
 backend/outputs/
+siamese_embedding/__pycache__/
 backend/*.db
 backend/qctool/uploads/
 backend/benchmark_results.csv
