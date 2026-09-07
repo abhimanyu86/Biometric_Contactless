@@ -12,12 +12,15 @@
 # cloud-tier need, not an on-device one — nothing about the on-device-tier
 # exclusions above has changed.
 #
-# NOTE: 0.19.0+cpu was validated against torch==2.4.0+cpu during development (the
-# local env this feature was built and tested against). This file pins
-# torch==2.12.0+cpu, a different version than that dev environment — verify
-# torchvision's version here is actually compatible with torch 2.12.0 before
-# deploying (torch/torchvision have a strict version-pairing requirement); don't
-# assume this pin is correct without checking.
+# torchvision is intentionally left unpinned (unlike every other dependency in
+# this file): torchvision hard-pins an exact required torch version internally
+# (confirmed via a failed build: "torchvision 0.19.0+cpu depends on
+# torch==2.4.0", which conflicts with torch==2.12.0+cpu pinned below). Pinning
+# torchvision here to whatever version happened to work in dev (0.19.0, paired
+# with torch==2.4.0 there) breaks the build against this file's torch==2.12.0+cpu.
+# Leaving it unpinned lets pip's resolver pick whichever torchvision release
+# actually requires torch==2.12.0 -- if this ever fails to resolve, torch's own
+# release notes list the correct torch/torchvision pairing.
 #
 # networkx IS needed, despite matching.py only using "legacy" in production:
 # matching.py imports the entire algorithms/ package unconditionally at module
@@ -40,7 +43,7 @@ flask-cors==6.0.2
 numpy==1.26.4
 scipy>=1.11.0
 torch==2.12.0+cpu
-torchvision==0.19.0+cpu
+torchvision
 opencv-python-headless==4.9.0.80
 gunicorn>=21.2.0
 networkx>=3.0
