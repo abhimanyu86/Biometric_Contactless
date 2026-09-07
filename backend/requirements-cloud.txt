@@ -1,10 +1,23 @@
 # Cloud service (cloud_app.py) dependencies only — templatization + matching.
 #
-# Deliberately excludes everything on-device-tier: torchvision, ultralytics,
-# tensorflow, mediapipe, scikit-image, and the dev-tooling set (streamlit, pandas,
-# altair, matplotlib, requests, scikit-learn). Those are what YOLO/liveness/U2Net/
-# Zero-DCE/labtool/benchmark.py need — none of them run in this process. See the
-# split table in the architecture plan for the full reasoning.
+# Deliberately excludes ultralytics, tensorflow, mediapipe, scikit-image, and the
+# dev-tooling set (streamlit, pandas, altair, matplotlib, requests, scikit-learn).
+# Those are what YOLO/liveness/U2Net/Zero-DCE/labtool/benchmark.py need — none of
+# them run in this process. See the split table in the architecture plan for the
+# full reasoning.
+#
+# torchvision IS needed here (unlike the note that used to be on this line): the
+# CNN/Siamese embedding matcher (embedding_matcher.py, /v2/*_embedding endpoints)
+# uses torchvision's pretrained ResNet18 as its feature extractor. This is a
+# cloud-tier need, not an on-device one — nothing about the on-device-tier
+# exclusions above has changed.
+#
+# NOTE: 0.19.0+cpu was validated against torch==2.4.0+cpu during development (the
+# local env this feature was built and tested against). This file pins
+# torch==2.12.0+cpu, a different version than that dev environment — verify
+# torchvision's version here is actually compatible with torch 2.12.0 before
+# deploying (torch/torchvision have a strict version-pairing requirement); don't
+# assume this pin is correct without checking.
 #
 # networkx IS needed, despite matching.py only using "legacy" in production:
 # matching.py imports the entire algorithms/ package unconditionally at module
@@ -27,6 +40,7 @@ flask-cors==6.0.2
 numpy==1.26.4
 scipy>=1.11.0
 torch==2.12.0+cpu
+torchvision==0.19.0+cpu
 opencv-python-headless==4.9.0.80
 gunicorn>=21.2.0
 networkx>=3.0
