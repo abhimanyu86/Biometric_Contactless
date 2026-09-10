@@ -17,6 +17,10 @@ siamese_embedding/embeddings_cache*.json
 # ── Real fingerprint photos — never commit these, wherever they land ─────────
 single_finger_images/
 slap_images/
+image_db/
+test_db/
+spoof_testing/
+backend/spoof_dataset/
 *.log
 
 # ── Python ────────────────────────────────────────────────────────────────────
@@ -56,3 +60,6 @@ pubspec.lock
 *.iml
 *.DS_Store
 Thumbs.db
+
+# ── Claude Code local settings (personal permission allowlist, not shared) ────
+.claude/settings.local.json
