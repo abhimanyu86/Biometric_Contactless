@@ -17,6 +17,8 @@ siamese_embedding/embeddings_cache*.json
 # ── Real fingerprint photos — never commit these, wherever they land ─────────
 single_finger_images/
 slap_images/
+image_db/
+test_db/
 *.log
 
 # ── Python ────────────────────────────────────────────────────────────────────
