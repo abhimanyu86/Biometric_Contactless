@@ -49,6 +49,10 @@ cd backend && streamlit run qctool/app.py
 
 # Lab bench — enrol a dataset, then walk FP-01..FP-08 on a probe photo
 cd backend && streamlit run labtool/app.py
+
+# Spoof detector test bench — upload photos, see the FFT verdict + spectrum plot.
+# No backend server or model weights needed, same as the tests.
+cd backend && streamlit run spooftool/app.py
 ```
 
 `backend/start.sh` contains a hardcoded venv path to a former developer's machine and does
@@ -112,6 +116,22 @@ Its gallery is a separate `backend/lab_gallery.db` — `/users` does not return
 spec requires. Uncompressed records are conformant, so there is no JPEG2000 dependency.
 It ships a decoder used by the tests, so conformance is demonstrated by round-trip rather
 than asserted.
+
+`backend/spoof_detection.py` is a second, independent presentation-attack signal:
+`check_liveness` (the MobileNetV2 classifier) was never trained on screen/print recapture
+and doesn't catch someone holding a photo of a finger up to the camera. `detect_screen_replay`
+looks for the sharp multi-peak "comb" a display's pixel grid leaves in the radial FFT
+spectrum, which a real fingertip's single ridge-frequency peak doesn't produce — same radial
+windowing technique as `fir.estimate_ridge_period`. It's imported by `app.py` and
+`slap_app.py` the same way `matching.py` is, and gates enroll/authenticate/verify alongside
+`check_liveness` (OR'd together — either signal can reject). **The thresholds are an
+uncalibrated starting point**, verified only against synthetic test patterns
+(`tests/test_spoof_detection.py`), not real screen-recapture photos — same caveat as
+`MATCH_THRESH` above, needs a measured FAR/FRR pass before being trusted alone.
+`backend/spooftool/` is a Streamlit bench for exactly that: upload real/spoof photos and
+see the verdict plus the actual FFT spectrum plot (`analyze_spectrum` exposes the raw
+band/baseline/peaks so the tool doesn't re-derive the threshold logic itself). Like the
+tests, it needs no backend server and no model weights.
 
 Note the two template formats are different standards and are easy to confuse:
 

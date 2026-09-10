@@ -28,6 +28,7 @@ from flask import Flask, request, jsonify
 
 import slap_core as core
 import fir  # same module app.py's /export_fir already uses
+from spoof_detection import detect_screen_replay  # same module app.py uses
 
 app = Flask(__name__)
 
@@ -86,6 +87,7 @@ def label_fingers(dets, hand_side, finger_order=None):
 def process_one_finger(crop_bgr, want_vis=False):
     """ONE cropped finger through the proven preprocess -> minutiae -> ISO chain."""
     liveness     = core.check_liveness(crop_bgr)
+    screen_check = detect_screen_replay(crop_bgr)
     mask         = core.get_segmentation_mask(crop_bgr)
     preprocessed = core.preprocess_fingerprint(crop_bgr, mask=mask)
     minutiae     = core.detect_minutiae(preprocessed)
@@ -93,6 +95,7 @@ def process_one_finger(crop_bgr, want_vis=False):
 
     out = {
         "liveness": liveness,
+        "screen_check": screen_check,
         "minutiae_count": len(minutiae),
         "minutiae": minutiae,
         "template_b64": base64.b64encode(iso).decode(),
@@ -293,12 +296,14 @@ def enroll_slap_endpoint():
         if not f.get("ok"):
             continue
         lv = f.get("liveness") or {}
-        if not lv.get("is_live"):
+        sc = f.get("screen_check") or {}
+        if not lv.get("is_live") or sc.get("is_screen"):
             return jsonify({
                 "success": False,
                 "spoof_detected": True,
                 "finger_position": f.get("finger_position"),
                 "liveness_confidence": lv.get("confidence", 0.0),
+                "screen_check": sc,
             }), 422
 
     con = sqlite3.connect(SLAP_DB)
@@ -388,12 +393,14 @@ def authenticate_slap_endpoint():
         fingers = [f for f in result["fingers"] if f.get("ok")]
         for f in fingers:
             lv = f.get("liveness") or {}
-            if not lv.get("is_live"):
+            sc = f.get("screen_check") or {}
+            if not lv.get("is_live") or sc.get("is_screen"):
                 return jsonify({
                     "success": False,
                     "spoof_detected": True,
                     "finger_position": f.get("finger_position"),
                     "liveness_confidence": lv.get("confidence", 0.0),
+                    "screen_check": sc,
                 }), 422
 
         con = sqlite3.connect(SLAP_DB)
@@ -505,12 +512,14 @@ def verify_slap_endpoint():
         fingers = [f for f in result["fingers"] if f.get("ok")]
         for f in fingers:
             lv = f.get("liveness") or {}
-            if not lv.get("is_live"):
+            sc = f.get("screen_check") or {}
+            if not lv.get("is_live") or sc.get("is_screen"):
                 return jsonify({
                     "success": False,
                     "spoof_detected": True,
                     "finger_position": f.get("finger_position"),
                     "liveness_confidence": lv.get("confidence", 0.0),
+                    "screen_check": sc,
                 }), 422
 
         con = sqlite3.connect(SLAP_DB)

@@ -944,6 +944,10 @@ def compare_contact_vs_contactless(img1, img2):
 # drift. See that module for why the edge descriptor is rotation invariant.
 from matching import match_templates  # noqa: F401
 
+# Screen/print recapture heuristic — independent of the liveness model, see
+# spoof_detection.py for why. Shared with slap_app.py the same way matching.py is.
+from spoof_detection import detect_screen_replay
+
 # ISO/IEC 19794-4 finger image records — FP-06.
 import fir
 
@@ -1409,9 +1413,11 @@ def enroll():
         # Pipeline
         cropped, det_conf = detect_and_crop(path)
         liveness = check_liveness(cropped)
-        if not liveness["is_live"]:
+        screen_check = detect_screen_replay(cropped)
+        if not liveness["is_live"] or screen_check["is_screen"]:
             return jsonify({"success": False, "spoof_detected": True,
-                            "liveness_confidence": liveness["confidence"]}), 422
+                            "liveness_confidence": liveness["confidence"],
+                            "screen_check": screen_check}), 422
 
         preprocessed = preprocess_fingerprint(cropped)
         minutiae      = detect_minutiae(preprocessed)
@@ -1482,9 +1488,11 @@ def authenticate():
 
         cropped, _ = detect_and_crop(path)
         liveness   = check_liveness(cropped)
-        if not liveness["is_live"]:
+        screen_check = detect_screen_replay(cropped)
+        if not liveness["is_live"] or screen_check["is_screen"]:
             return jsonify({"success": False, "spoof_detected": True,
-                            "liveness_confidence": liveness["confidence"]}), 422
+                            "liveness_confidence": liveness["confidence"],
+                            "screen_check": screen_check}), 422
 
         preprocessed   = preprocess_fingerprint(cropped)
         input_minutiae = detect_minutiae(preprocessed)
@@ -1546,9 +1554,11 @@ def verify():
 
         cropped, det_conf = detect_and_crop(path)
         liveness = check_liveness(cropped)
-        if not liveness["is_live"]:
+        screen_check = detect_screen_replay(cropped)
+        if not liveness["is_live"] or screen_check["is_screen"]:
             return jsonify({"success": False, "spoof_detected": True,
-                            "liveness_confidence": liveness["confidence"]}), 422
+                            "liveness_confidence": liveness["confidence"],
+                            "screen_check": screen_check}), 422
 
         preprocessed   = preprocess_fingerprint(cropped)
         input_minutiae = detect_minutiae(preprocessed)
@@ -1813,6 +1823,7 @@ def process():
         # but flag quality status so the app can surface the warning.
         cropped, det_conf = detect_and_crop(path)
         liveness = check_liveness(cropped)
+        screen_check = detect_screen_replay(cropped)
         preprocessed = preprocess_fingerprint(cropped)
         minutiae = detect_minutiae(preprocessed) if "minutiae" in global_models else []
         vis      = create_visualization(preprocessed, minutiae) if minutiae else preprocessed
@@ -1827,6 +1838,7 @@ def process():
             "quality":          qc,
             "detection_conf":   round(det_conf, 4),
             "liveness":         liveness,
+            "screen_check":     screen_check,
             "minutiae_count":   len(minutiae),
             "minutiae":         minutiae,
             "images": {
