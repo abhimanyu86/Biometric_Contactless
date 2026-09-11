@@ -50,7 +50,7 @@ from minutiae import detect_minutiae, get_minutiae_model
 from matching import match_templates
 from slap_matching import score_against_user, label_by_order, MATCH_THRESH
 from embedding_matcher import embed_image, cosine_similarity, EMBEDDING_THRESHOLD, get_embedding_model
-from slap_embedding_matching import score_against_user_embedding, EMBEDDING_SLAP_THRESHOLD
+from slap_embedding_matching import score_against_user_embedding, EMBEDDING_SLAP_MIN_FINGERS
 
 app = Flask(__name__)
 CORS(app)
@@ -791,11 +791,15 @@ def verify_slap_v2():
 # /v2/authenticate_slap_embedding, /v2/verify_slap_embedding
 #
 # Same request contract as the minutiae slap endpoints above (multiple images,
-# one per finger, labelled by upload order via label_by_order) and the same
-# position-constrained top-2-average aggregation (slap_embedding_matching.py),
-# just with embed_image()/cosine_similarity() standing in for
-# detect_minutiae()/match_templates(). Separate table (slap_embedding_templates,
-# same slap.db file) — nothing about the existing minutiae slap flow changes.
+# one per finger, labelled by upload order via label_by_order). Matching logic
+# was redesigned to mirror single-finger embedding matching exactly, run once
+# per finger (see slap_embedding_matching.py's module docstring for why the
+# earlier top-2-average aggregation was dropped): each probe finger is compared
+# only to its position-matched enrolled finger, judged independently against
+# the same EMBEDDING_THRESHOLD single-finger uses, and a candidate passes if
+# at least EMBEDDING_SLAP_MIN_FINGERS (default 2) fingers individually clear
+# it. Separate table (slap_embedding_templates, same slap.db file) — nothing
+# about the existing minutiae slap flow changes.
 #
 # Not validated for slap-specific accuracy — see slap_embedding_matching.py's
 # module docstring.
@@ -885,27 +889,32 @@ def authenticate_slap_embedding():
 
             best_uid = None
             best_name = None
-            best_agg = 0.0
+            best_passed = -1
+            best_avg = -1.0
             best_matches = []
             for uid, user_rows in by_uid.items():
-                agg_score, finger_scores = score_against_user_embedding(fingers, user_rows)
-                if agg_score > best_agg:
-                    best_agg = agg_score
+                fingers_passed, finger_scores = score_against_user_embedding(fingers, user_rows)
+                avg = sum(m["confidence"] for m in finger_scores) / max(1, len(finger_scores))
+                # Rank candidates by how many fingers independently passed first,
+                # average confidence only as a tiebreak -- fingers_passed is the
+                # actual decision signal now, not a continuous aggregate score.
+                if (fingers_passed, avg) > (best_passed, best_avg):
+                    best_passed = fingers_passed
+                    best_avg = avg
                     best_uid = uid
                     best_name = user_rows[0]["name"]
                     best_matches = finger_scores
 
-            success = best_agg >= EMBEDDING_SLAP_THRESHOLD and best_uid is not None
+            success = best_uid is not None and best_passed >= EMBEDDING_SLAP_MIN_FINGERS
+            avg_conf = max(best_avg, 0.0)
             now = datetime.utcnow().isoformat()
             if success:
-                avg_conf = (sum(m["confidence"] for m in best_matches)
-                            / max(1, len(best_matches)))
                 con.execute(
                     """INSERT INTO slap_embedding_auth_history
                     (uid,name,batch,hand_side,success,avg_confidence,best_confidence,
                      matched_fingers_json,created_at) VALUES (?,?,?,?,?,?,?,?,?)""",
                     (best_uid, best_name, batch, hand_side, 1,
-                     round(avg_conf, 5), round(best_agg, 5),
+                     round(avg_conf, 5), round(avg_conf, 5),
                      json.dumps(best_matches), now),
                 )
                 con.commit()
@@ -914,9 +923,10 @@ def authenticate_slap_embedding():
                     "uid": best_uid,
                     "name": best_name,
                     "hand_side": hand_side,
+                    "fingers_passed": best_passed,
+                    "min_fingers_required": EMBEDDING_SLAP_MIN_FINGERS,
                     "avg_confidence": round(avg_conf, 5),
-                    "confidence": round(best_agg, 5),
-                    "threshold": EMBEDDING_SLAP_THRESHOLD,
+                    "threshold": EMBEDDING_THRESHOLD,
                     "matched_fingers": best_matches,
                 })
             else:
@@ -924,15 +934,17 @@ def authenticate_slap_embedding():
                     """INSERT INTO slap_embedding_auth_history
                     (uid,name,batch,hand_side,success,avg_confidence,best_confidence,
                      matched_fingers_json,created_at) VALUES (?,?,?,?,?,?,?,?,?)""",
-                    (None, None, batch, hand_side, 0, 0.0, round(best_agg, 5),
-                     "[]", now),
+                    (None, None, batch, hand_side, 0, 0.0, round(avg_conf, 5),
+                     json.dumps(best_matches), now),
                 )
                 con.commit()
                 return jsonify({
                     "success": False,
                     "message": "No match found",
-                    "confidence": round(best_agg, 5),
-                    "threshold": EMBEDDING_SLAP_THRESHOLD,
+                    "fingers_passed": max(best_passed, 0),
+                    "min_fingers_required": EMBEDDING_SLAP_MIN_FINGERS,
+                    "threshold": EMBEDDING_THRESHOLD,
+                    "matched_fingers": best_matches,
                 })
         finally:
             con.close()
@@ -974,10 +986,10 @@ def verify_slap_embedding():
 
             user_rows = [{"finger_position": r["finger_position"],
                          "embedding_json": r["embedding_json"]} for r in rows]
-            score, matched_fingers = score_against_user_embedding(fingers, user_rows)
-            matched = score >= EMBEDDING_SLAP_THRESHOLD
+            fingers_passed, matched_fingers = score_against_user_embedding(fingers, user_rows)
+            matched = fingers_passed >= EMBEDDING_SLAP_MIN_FINGERS
             avg_conf = (sum(m["confidence"] for m in matched_fingers)
-                        / max(1, len(matched_fingers)))
+                        / max(1, len(matched_fingers))) if matched_fingers else 0.0
 
             return jsonify({
                 "success": True,
@@ -985,9 +997,10 @@ def verify_slap_embedding():
                 "uid": uid,
                 "name": name,
                 "hand_side": hand_side,
-                "confidence": round(score, 5),
+                "fingers_passed": fingers_passed,
+                "min_fingers_required": EMBEDDING_SLAP_MIN_FINGERS,
                 "avg_confidence": round(avg_conf, 5),
-                "threshold": EMBEDDING_SLAP_THRESHOLD,
+                "threshold": EMBEDDING_THRESHOLD,
                 "matched_fingers": matched_fingers,
             })
         finally:
