@@ -85,10 +85,9 @@ def build():
         "single-finger version is validated at 92.5% matching accuracy on a 336-person test "
         "set (vs. ~52% for the existing minutiae matcher) — see the attached "
         "<i>Siamese_Embedding_Phase_A_Report.pdf</i> for the full methodology and numbers. "
-        "The slap version uses the exact same per-finger matcher and aggregation shape as the "
-        "existing minutiae slap endpoints, but has <b>not</b> been separately measured for "
-        "slap-specific accuracy/FAR/FRR — treat it as functionally verified, not yet "
-        "accuracy-validated.",
+        "The slap version runs that same single-finger comparison once per finger (see §4), "
+        "but has <b>not</b> been separately measured for slap-specific accuracy/FAR/FRR — "
+        "treat it as functionally verified, not yet accuracy-validated.",
         body,
     ))
     story.append(Paragraph(
@@ -186,8 +185,17 @@ def build():
         "<code>image</code> field (one per finger, in capture order), plus <b>hand_side</b> "
         "(\"left\"/\"right\", default \"right\") and an optional <b>finger_order</b> "
         "(comma-separated finger-position names) if your capture order doesn't match the "
-        "default 4-finger layout. Each candidate's score is the average of their top 2 "
-        "per-finger cosine-similarity scores — same aggregation rule as the minutiae slap path.",
+        "default 4-finger layout.",
+        body,
+    ))
+    story.append(Paragraph(
+        "<b>Updated matching logic (was: an averaged score across fingers, now: per-finger, "
+        "same as single-finger).</b> Each probe finger is compared only to its own "
+        "same-position enrolled finger, and judged independently against the exact same 0.94 "
+        "threshold single-finger uses — no averaging across fingers. A candidate is accepted "
+        "only if <b>at least 2 of their fingers individually clear 0.94</b> "
+        "(<code>min_fingers_required</code> below, server-configurable). A single strong "
+        "finger score can no longer carry a weak one.",
         body,
     ))
 
@@ -228,19 +236,26 @@ def build():
         "(multiple). Compares against every person enrolled in the batch.",
         body,
     ))
+    story.append(Paragraph(
+        "\"success\" here means a candidate cleared min_fingers_required and is being "
+        "returned — check fingers_passed/min_fingers_required for the actual decision detail, "
+        "not a confidence-vs-threshold comparison.",
+        body,
+    ))
     story.append(Spacer(1, 4))
     story.append(labeled_code(
         "Response (match found):",
         '{"success": true, "uid": "...", "name": "...", "hand_side": "right", '
-        '"confidence": 0.9957, "avg_confidence": 0.9957, "threshold": 0.94, '
-        '"matched_fingers": [{"probe_position": "right_little", '
-        '"matched_position": "right_little", "confidence": 0.9954}, ...]}',
+        '"fingers_passed": 2, "min_fingers_required": 2, "avg_confidence": 0.9957, '
+        '"threshold": 0.94, "matched_fingers": [{"probe_position": "right_little", '
+        '"matched_position": "right_little", "confidence": 0.9954, "passed": true}, ...]}',
         body, code,
     ))
     story.append(Spacer(1, 8))
     story.append(labeled_code(
-        "Response (no match):",
-        '{"success": false, "message": "No match found", "confidence": 0.61, "threshold": 0.94}',
+        "Response (no match — e.g. only 1 of 2 fingers passed):",
+        '{"success": false, "message": "No match found", "fingers_passed": 1, '
+        '"min_fingers_required": 2, "threshold": 0.94, "matched_fingers": [...]}',
         body, code,
     ))
 
@@ -248,15 +263,19 @@ def build():
     story.append(Paragraph(
         "Multipart fields: <b>uid</b>, <b>batch</b>, <b>hand_side</b> (optional), "
         "<b>image</b> (multiple). Compares only against that specific person's enrolled "
-        "fingers.",
+        "fingers. Use <b>matched</b> for the pass/fail decision — it's already "
+        "fingers_passed &gt;= min_fingers_required, no need to recompute it client-side.",
         body,
     ))
     story.append(Spacer(1, 4))
     story.append(labeled_code(
         "Response:",
         '{"success": true, "matched": true, "uid": "...", "name": "...", "hand_side": "right", '
-        '"confidence": 0.9957, "avg_confidence": 0.9957, "threshold": 0.94, '
-        '"matched_fingers": [...]}',
+        '"fingers_passed": 2, "min_fingers_required": 2, "avg_confidence": 0.9957, '
+        '"threshold": 0.94, "matched_fingers": [{"probe_position": "right_little", '
+        '"matched_position": "right_little", "confidence": 0.9954, "passed": true}, '
+        '{"probe_position": "right_ring", "matched_position": "right_ring", '
+        '"confidence": 0.9881, "passed": true}]}',
         body, code,
     ))
 
@@ -264,27 +283,49 @@ def build():
 
     story.append(Paragraph("5. Reading the response", h2))
     story.append(Paragraph(
-        "<b>confidence</b> is a cosine similarity score from -1 to 1 (in practice you'll see "
-        "roughly 0.85-1.0 for fingerprint photos, genuine or not — this embedding space sits "
-        "in a narrow, high band, not spread across the full range). <b>matched</b> / whether "
-        "a candidate is returned at all is decided by comparing confidence against "
-        "<b>threshold</b> (currently 0.94, also returned in every response so the app never "
-        "needs to hardcode it).",
+        "<b>confidence</b> (and each finger's individual score, in matched_fingers) is a "
+        "cosine similarity score from -1 to 1 (in practice you'll see roughly 0.85-1.0 for "
+        "fingerprint photos, genuine or not — this embedding space sits in a narrow, high "
+        "band, not spread across the full range).",
+        body,
+    ))
+    story.append(Paragraph(
+        "<b>Single-finger decision</b>: matched is a direct confidence-vs-threshold "
+        "comparison (currently 0.94, returned in every response so the app never needs to "
+        "hardcode it).",
+        body,
+    ))
+    story.append(Paragraph(
+        "<b>Slap decision</b> works differently — it's a count, not a magnitude comparison. "
+        "Each finger is checked against threshold independently (matched_fingers[i].passed), "
+        "and the response is only a match when fingers_passed &gt;= min_fingers_required "
+        "(default 2). Don't try to compare the slap-level \"confidence\"/\"avg_confidence\" "
+        "field against threshold yourself to derive a decision — it's informational (useful "
+        "for showing the user a number), the actual decision is already made and returned "
+        "for you.",
         body,
     ))
 
-    story.append(Paragraph("6. Important — thresholds are not fully calibrated yet", h2))
+    story.append(Paragraph("6. Important — nothing here is fully calibrated yet", h2))
     story.append(Paragraph(
         "0.94 was measured on a lab dataset (HKPU contactless fingerprint database — different "
         "camera, lighting, and preprocessing than this app's actual capture pipeline) using the "
         "<b>single-finger</b> protocol. It's a reasonable starting point, not a final production "
-        "number. The slap threshold currently defaults to that same 0.94 "
-        "(<code>EMBEDDING_SLAP_THRESHOLD</code>, independently configurable server-side) but "
-        "has no slap-specific measurement behind it at all yet — it's a placeholder, not even a "
-        "lab-validated number the way the single-finger one is. Expect both to change once "
-        "they're measured against real captures from the app — build against the "
-        "<b>threshold</b> field in each response rather than hardcoding 0.94 anywhere in the "
-        "app, so a server-side recalibration doesn't require a client update.",
+        "number — build against the <b>threshold</b> field in each response rather than "
+        "hardcoding 0.94 anywhere in the app, so a server-side recalibration doesn't require a "
+        "client update.",
+        warn,
+    ))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(
+        "For slap, there's a second unvalidated number on top of that: "
+        "<b>min_fingers_required = 2</b> (env-configurable as "
+        "<code>EMBEDDING_SLAP_MIN_FINGERS</code>) is a reasonable-sounding rule — require more "
+        "than one finger to individually pass — but it hasn't been measured against real slap "
+        "captures either. Whether 2-of-4 is the right cutoff (vs. 1-of-4, 3-of-4, or something "
+        "smarter) is an open question once real usage data exists. Build against "
+        "<b>min_fingers_required</b> in the response the same way — don't hardcode \"2\" "
+        "anywhere in the app.",
         warn,
     ))
 
