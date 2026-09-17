@@ -3,16 +3,20 @@ backend/*.pt
 backend/*.pth
 backend/*.h5
 backend/*.tflite
+backend/*.onnx
 backend/**/*.pt
 backend/**/*.pth
 backend/**/*.h5
 backend/**/*.tflite
+backend/**/*.onnx
 backend/models/
 # Raw weight drops from Drive, staged at the repo root before sorting into backend/.
 single_finger_backend_models/
 slap_backend_models/
 siamese_embedding/checkpoints/
 siamese_embedding/embeddings_cache*.json
+siamese_embedding/minutiae_cache_30.json
+siamese_embedding/minutiae_scores_30.json
 
 # ── Real fingerprint photos — never commit these, wherever they land ─────────
 single_finger_images/
