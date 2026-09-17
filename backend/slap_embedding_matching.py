@@ -2,36 +2,48 @@
 slap_embedding_matching.py — slap-specific orchestration for the CNN/Siamese
 embedding matcher (embedding_matcher.py).
 
-Redesigned (was: top-2-average aggregation into one continuous slap score,
-mirroring slap_matching.py's minutiae aggregation). The averaged-score
-approach wasn't working well in practice, so this now matches the
-single-finger embedding matcher's own logic exactly, just run once per
-finger: each probe finger is compared to its position-matched enrolled
-finger via plain cosine similarity and judged against the SAME
-EMBEDDING_THRESHOLD single-finger uses (0.94 by default) -- no separate
-slap-specific threshold, no averaging across fingers. A candidate passes if
-at least EMBEDDING_SLAP_MIN_FINGERS individual fingers independently clear
-that threshold (default 2 of the up to 4 captured).
+Per-finger matching mirrors the single-finger embedding matcher's own logic,
+run once per finger: each probe finger is compared to its position-matched
+enrolled finger via plain cosine similarity -- no averaging across fingers.
+A candidate passes if at least EMBEDDING_SLAP_MIN_FINGERS individual fingers
+independently clear the per-finger threshold (default 2 of the up to 4
+captured).
+
+EMBEDDING_SLAP_FINGER_THRESHOLD (default 0.78) is deliberately its OWN
+constant, separate from single-finger's EMBEDDING_THRESHOLD (0.94) -- an
+earlier version of this file reused 0.94 directly for slap too, on the
+reasoning "same matcher, same threshold." That was wrong: 0.94 was measured
+on the HKPU lab dataset (clean, consistent studio captures). Every real-photo
+measurement we've since run (siamese_embedding/evaluate_30_resnet18.py, the
+30-person image_db/test_db set of real uncontrolled phone photos) puts the
+actual genuine/impostor separation point much lower, at EER threshold
+~0.78 -- so requiring each finger to clear 0.94 was very likely rejecting
+real, genuine slap captures far more often than the lab number would
+suggest. 0.78 is that measured real-photo number, used here as the better-
+grounded starting point.
 
 The position constraint is unchanged (a probe finger only ever compares
 against the SAME declared position's enrolled finger -- bug.md #2's fix for
 the minutiae path, kept here for the same reason: without it, a probe
 finger could get a lucky cross-position match).
 
-Still not validated for slap-specific accuracy/FAR/FRR -- only the
-single-finger protocol has a measured number (siamese_embedding/, 92.5%
-accuracy at EER=7.5%). This redesign makes slap decisions using that same
-measured threshold per finger, which is a better-grounded starting point
-than the old placeholder aggregate threshold, but "at least 2 fingers must
-independently clear 0.94" as a *slap-level* accept/reject rule is still
-unmeasured and should be revisited once real slap capture data exists.
+Still not validated against real MULTI-FINGER slap captures specifically --
+0.78 comes from single-finger real-photo data (the closest real-world
+evidence we have), not a slap-specific measurement. Watch for the opposite
+failure mode after this change: a lower per-finger bar means impostor
+fingers are now more likely to individually pass too (we measured real
+impostor scores routinely landing in the high 0.7s-0.8s on this same
+dataset), so EMBEDDING_SLAP_MIN_FINGERS (requiring 2+, not just 1) is now
+doing more of the real security work than the per-finger threshold is --
+worth re-checking FAR specifically after this change, not just FRR.
 """
 import json
 import os
 
-from embedding_matcher import cosine_similarity, EMBEDDING_THRESHOLD
+from embedding_matcher import cosine_similarity, EMBEDDING_THRESHOLD  # noqa: F401 -- EMBEDDING_THRESHOLD kept for reference/back-compat imports
 
 EMBEDDING_SLAP_MIN_FINGERS = int(os.environ.get("EMBEDDING_SLAP_MIN_FINGERS", "2"))
+EMBEDDING_SLAP_FINGER_THRESHOLD = float(os.environ.get("EMBEDDING_SLAP_FINGER_THRESHOLD", "0.78"))
 
 
 def best_finger_embedding_match(probe_embedding, user_rows, probe_position=None):
@@ -75,17 +87,18 @@ def score_against_user_embedding(probe_fingers, user_rows, min_fingers_required=
 
     Each probe finger is compared ONLY to its position-matched enrolled finger
     (bug.md #2's constraint) via plain cosine similarity, then judged
-    independently against EMBEDDING_THRESHOLD -- the exact same threshold and
-    decision rule /v2/verify_embedding uses for a single finger. No averaging
-    across fingers.
+    independently against EMBEDDING_SLAP_FINGER_THRESHOLD -- a real-photo-
+    calibrated threshold (0.78), deliberately lower than single-finger's
+    lab-calibrated EMBEDDING_THRESHOLD (0.94) -- see this module's docstring
+    for why. No averaging across fingers.
 
     Returns (fingers_passed, matched_fingers). matched_fingers is the
     per-finger detail list (probe_position, matched_position, confidence,
     passed) for every finger that found a same-position stored counterpart --
     a finger with nothing to compare against isn't included at all (it's
     "no data", not "failed"). fingers_passed is how many of those included
-    fingers individually cleared EMBEDDING_THRESHOLD. The caller decides
-    accept/reject by comparing fingers_passed to min_fingers_required
+    fingers individually cleared EMBEDDING_SLAP_FINGER_THRESHOLD. The caller
+    decides accept/reject by comparing fingers_passed to min_fingers_required
     (defaults to EMBEDDING_SLAP_MIN_FINGERS).
     """
     if min_fingers_required is None:
@@ -98,7 +111,7 @@ def score_against_user_embedding(probe_fingers, user_rows, min_fingers_required=
                                                   probe_position=f["finger_position"])
         if mpos is None:
             continue  # nothing enrolled at this probe's position -- no data, not a failure
-        passed = s >= EMBEDDING_THRESHOLD
+        passed = s >= EMBEDDING_SLAP_FINGER_THRESHOLD
         matched_fingers.append({
             "probe_position": f["finger_position"],
             "matched_position": mpos,

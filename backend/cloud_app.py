@@ -50,7 +50,7 @@ from minutiae import detect_minutiae, get_minutiae_model
 from matching import match_templates
 from slap_matching import score_against_user, label_by_order, MATCH_THRESH
 from embedding_matcher import embed_image, cosine_similarity, EMBEDDING_THRESHOLD, get_embedding_model
-from slap_embedding_matching import score_against_user_embedding, EMBEDDING_SLAP_MIN_FINGERS
+from slap_embedding_matching import score_against_user_embedding, EMBEDDING_SLAP_MIN_FINGERS, EMBEDDING_SLAP_FINGER_THRESHOLD
 
 app = Flask(__name__)
 CORS(app)
@@ -256,6 +256,8 @@ def health():
         "minutiae_model": minutiae_ok,
         "embedding_model": embedding_ok,
         "embedding_threshold": EMBEDDING_THRESHOLD,
+        "embedding_slap_finger_threshold": EMBEDDING_SLAP_FINGER_THRESHOLD,
+        "embedding_slap_min_fingers": EMBEDDING_SLAP_MIN_FINGERS,
     })
 
 
@@ -792,14 +794,16 @@ def verify_slap_v2():
 #
 # Same request contract as the minutiae slap endpoints above (multiple images,
 # one per finger, labelled by upload order via label_by_order). Matching logic
-# was redesigned to mirror single-finger embedding matching exactly, run once
-# per finger (see slap_embedding_matching.py's module docstring for why the
-# earlier top-2-average aggregation was dropped): each probe finger is compared
-# only to its position-matched enrolled finger, judged independently against
-# the same EMBEDDING_THRESHOLD single-finger uses, and a candidate passes if
-# at least EMBEDDING_SLAP_MIN_FINGERS (default 2) fingers individually clear
-# it. Separate table (slap_embedding_templates, same slap.db file) — nothing
-# about the existing minutiae slap flow changes.
+# mirrors single-finger embedding matching's shape, run once per finger (see
+# slap_embedding_matching.py's module docstring for the full history): each
+# probe finger is compared only to its position-matched enrolled finger,
+# judged independently against EMBEDDING_SLAP_FINGER_THRESHOLD (0.78 --
+# deliberately its own, lower, real-photo-calibrated constant, NOT
+# single-finger's lab-calibrated EMBEDDING_THRESHOLD of 0.94), and a candidate
+# passes if at least EMBEDDING_SLAP_MIN_FINGERS (default 2) fingers
+# individually clear it. Separate table (slap_embedding_templates, same
+# slap.db file) — nothing about the existing minutiae slap flow, or the
+# single-finger embedding flow, changes.
 #
 # Not validated for slap-specific accuracy — see slap_embedding_matching.py's
 # module docstring.
@@ -926,7 +930,7 @@ def authenticate_slap_embedding():
                     "fingers_passed": best_passed,
                     "min_fingers_required": EMBEDDING_SLAP_MIN_FINGERS,
                     "avg_confidence": round(avg_conf, 5),
-                    "threshold": EMBEDDING_THRESHOLD,
+                    "threshold": EMBEDDING_SLAP_FINGER_THRESHOLD,
                     "matched_fingers": best_matches,
                 })
             else:
@@ -943,7 +947,7 @@ def authenticate_slap_embedding():
                     "message": "No match found",
                     "fingers_passed": max(best_passed, 0),
                     "min_fingers_required": EMBEDDING_SLAP_MIN_FINGERS,
-                    "threshold": EMBEDDING_THRESHOLD,
+                    "threshold": EMBEDDING_SLAP_FINGER_THRESHOLD,
                     "matched_fingers": best_matches,
                 })
         finally:
@@ -1000,7 +1004,7 @@ def verify_slap_embedding():
                 "fingers_passed": fingers_passed,
                 "min_fingers_required": EMBEDDING_SLAP_MIN_FINGERS,
                 "avg_confidence": round(avg_conf, 5),
-                "threshold": EMBEDDING_THRESHOLD,
+                "threshold": EMBEDDING_SLAP_FINGER_THRESHOLD,
                 "matched_fingers": matched_fingers,
             })
         finally:
