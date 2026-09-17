@@ -22,6 +22,8 @@ RUN pip install --no-cache-dir -r requirements-cloud.txt
 COPY cloud_app.py .
 COPY embedding_matcher.py .
 COPY slap_embedding_matching.py .
+COPY hybrid_matcher.py .
+COPY slap_hybrid_matching.py .
 COPY minutiae.py .
 COPY slap_matching.py .
 COPY matching.py .
