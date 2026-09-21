@@ -3,25 +3,51 @@ backend/*.pt
 backend/*.pth
 backend/*.h5
 backend/*.tflite
+backend/*.onnx
 backend/**/*.pt
 backend/**/*.pth
 backend/**/*.h5
 backend/**/*.tflite
+backend/**/*.onnx
 backend/models/
 # Raw weight drops from Drive, staged at the repo root before sorting into backend/.
 single_finger_backend_models/
 slap_backend_models/
 siamese_embedding/checkpoints/
 siamese_embedding/embeddings_cache*.json
+siamese_embedding/minutiae_cache_30.json
+siamese_embedding/minutiae_scores_30.json
 
 # ── Real fingerprint photos — never commit these, wherever they land ─────────
 single_finger_images/
 slap_images/
 image_db/
 test_db/
+image_db_cropped/
+test_db_cropped/
 spoof_testing/
 backend/spoof_dataset/
 *.log
+# Debug/contact-sheet images built from real captures during the minutiae
+# ground-truth-labeling investigation.
+siamese_embedding/debug_*.png
+siamese_embedding/rahul_rejected_contact_sheet.png
+# User-submitted photos, pilot overlays and cropped real-photo inputs from the
+# extractor comparison / SourceAFIS pilot work.
+minutiae-labelling-and-training/user_photos/
+minutiae-labelling-and-training/pilot_output/
+minutiae-labelling-and-training/sourceafis_input_30/
+minutiae-labelling-and-training/test_sample.pgm
+minutiae-labelling-and-training/test_sample.raw
+
+# ── Third-party / build artifacts (minutiae-labelling-and-training) ─────────
+# Cloned NIST NBIS source (its own nested git repo) and abandoned Windows
+# build attempts -- not this project's code, and too large for git.
+minutiae-labelling-and-training/nbis-mindtct/
+minutiae-labelling-and-training/nbis-build/
+minutiae-labelling-and-training/bin-shim/
+minutiae-labelling-and-training/sourceafis-runner/target/
+minutiae-labelling-and-training/__pycache__/
 
 # ── Python ────────────────────────────────────────────────────────────────────
 backend/venv/
