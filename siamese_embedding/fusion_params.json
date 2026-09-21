@@ -1,0 +1,9 @@
+{
+  "weight_minutiae": 0.2,
+  "weight_embedding": 0.8,
+  "fused_threshold": 1.116196347923386,
+  "minutiae_impostor_mean": 0.05504561884888432,
+  "minutiae_impostor_std": 0.0385722408583879,
+  "embedding_impostor_mean": 0.7137894791090625,
+  "embedding_impostor_std": 0.06915622500308251
+}
