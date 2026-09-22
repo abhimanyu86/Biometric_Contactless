@@ -24,29 +24,31 @@ import app as app_module  # noqa: E402
 from matching import match_templates  # noqa: E402
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROCESSED_DIR = os.path.join(OUT_DIR, "processed_images")
+os.makedirs(PROCESSED_DIR, exist_ok=True)
 
 
 def extract_template(image_path, verbose=False):
     img = common.load_image(image_path)
     if img is None:
-        return None, "unreadable"
+        return None, "unreadable", None
 
     t0 = time.time()
     try:
         cropped, _conf = app_module.detect_and_crop_image(img)
     except Exception:
-        return None, "no_finger_detected"
+        return None, "no_finger_detected", None
     t1 = time.time()
 
     try:
         mask = app_module.get_segmentation_mask(cropped)
         if cv2.countNonZero(mask) == 0:
-            return None, "no_segmentation"
+            return None, "no_segmentation", None
         t2 = time.time()
         preprocessed = app_module.preprocess_fingerprint(cropped, mask=mask)
         t3 = time.time()
     except Exception:
-        return None, "preprocessing_failed"
+        return None, "preprocessing_failed", None
 
     minutiae = app_module.detect_minutiae(preprocessed)
     t4 = time.time()
@@ -58,8 +60,8 @@ def extract_template(image_path, verbose=False):
         )
 
     if not minutiae:
-        return None, "no_minutiae"
-    return minutiae, "ok"
+        return None, "no_minutiae", preprocessed
+    return minutiae, "ok", preprocessed
 
 
 def main():
@@ -69,10 +71,11 @@ def main():
     print(f"Models loaded in {time.time() - t0:.1f}s")
 
     print(f"Enrolling: {common.ENROLL_IMAGE}")
-    enroll_template, status = extract_template(common.ENROLL_IMAGE, verbose=True)
+    enroll_template, status, enroll_preprocessed = extract_template(common.ENROLL_IMAGE, verbose=True)
     if enroll_template is None:
         raise RuntimeError(f"Could not build enrollment template: {status}")
     print(f"Enrollment minutiae: {len(enroll_template)}")
+    cv2.imwrite(os.path.join(PROCESSED_DIR, os.path.basename(common.ENROLL_IMAGE)), enroll_preprocessed)
 
     probe_paths = common.list_probe_images()
     print(f"Probes found: {len(probe_paths)}")
@@ -84,7 +87,9 @@ def main():
     for i, path in enumerate(probe_paths, 1):
         name = os.path.basename(path)
         t_start = time.time()
-        template, status = extract_template(path, verbose=(i <= 3))
+        template, status, preprocessed = extract_template(path, verbose=(i <= 3))
+        if preprocessed is not None:
+            cv2.imwrite(os.path.join(PROCESSED_DIR, name), preprocessed)
         if template is None:
             failures += 1
             records.append({"image": name, "status": status, "score": "", "minutiae_count": ""})
