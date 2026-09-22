@@ -51,6 +51,28 @@ def load_image(path):
     return img
 
 
+GALLERY_DIR = os.path.join(REPO_ROOT, "image_db")
+
+
+def list_gallery_images():
+    """
+    31-identity enrollment gallery: Person1..Person30 (image_db's other
+    identities, mixed .jpeg/.png/.jpg extensions) plus Rahul -- used as
+    impostor identities against Rahul's 106 test_db probes, since Rahul is
+    the only identity with probe photos in test_db.
+    Returns [(identity_label, path), ...] sorted Person1..Person30, Rahul last.
+    """
+    import glob as glob_mod
+
+    entries = []
+    for path in glob_mod.glob(os.path.join(GALLERY_DIR, "Person*.*")):
+        name = os.path.splitext(os.path.basename(path))[0]
+        entries.append((name, path))
+    entries.sort(key=lambda e: int("".join(ch for ch in e[0] if ch.isdigit())))
+    entries.append(("Rahul", ENROLL_IMAGE))
+    return entries
+
+
 def list_probe_images():
     names = sorted(
         os.listdir(PROBE_DIR),
@@ -74,6 +96,40 @@ def sweep_accuracy(scores):
             }
         )
     return rows
+
+
+def compute_far_frr(genuine_scores, impostor_scores):
+    """Same FAR/FRR/EER definition as backend/benchmark.py's compute_metrics."""
+    from bisect import bisect_left
+
+    genuine_sorted = sorted(genuine_scores)
+    impostor_sorted = sorted(impostor_scores)
+    g_count = len(genuine_sorted)
+    i_count = len(impostor_sorted)
+
+    rows = []
+    for threshold in THRESHOLDS:
+        false_accepts = i_count - bisect_left(impostor_sorted, threshold) if i_count else 0
+        false_rejects = bisect_left(genuine_sorted, threshold) if g_count else 0
+        far = false_accepts / i_count if i_count else float("nan")
+        frr = false_rejects / g_count if g_count else float("nan")
+        rows.append(
+            {
+                "threshold": threshold,
+                "far": far,
+                "frr": frr,
+                "false_accepts": false_accepts,
+                "false_rejects": false_rejects,
+                "total_genuine": g_count,
+                "total_impostor": i_count,
+            }
+        )
+
+    eer_row = None
+    if rows:
+        eer_row = min(rows, key=lambda r: abs(r["far"] - r["frr"]))
+        eer_row = {**eer_row, "eer": (eer_row["far"] + eer_row["frr"]) / 2.0}
+    return rows, eer_row
 
 
 def write_per_image_csv(path, records):
