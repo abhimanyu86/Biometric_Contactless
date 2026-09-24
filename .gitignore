@@ -89,3 +89,9 @@ Thumbs.db
 
 # ── Claude Code local settings (personal permission allowlist, not shared) ────
 .claude/settings.local.json
+# FingerNet port: upstream weights (19 MB, fetch from github.com/592692070/FingerNet)
+# and its overlays/.mnt output on real captures.
+minutiae-labelling-and-training/fingernet/Model.model
+minutiae-labelling-and-training/fingernet/output/
+# Upstream's prebuilt Linux mindtct binary: unverified, and unused on Windows.
+minutiae-labelling-and-training/py-minutiae-viewer/pyminutiaeviewer/mindtct/mindtct
