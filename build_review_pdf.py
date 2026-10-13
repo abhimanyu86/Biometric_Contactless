@@ -1,7 +1,8 @@
 #!/opt/anaconda3/bin/python3
 # -*- coding: utf-8 -*-
-"""Generate a detailed PDF review of the UIDAI SITAA PDD problems."""
+"""Generate a detailed PDF review of the SITAA PDD problems."""
 
+import os
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
@@ -12,7 +13,7 @@ from reportlab.platypus import (
     HRFlowable, KeepTogether, PageBreak
 )
 
-OUT = "/Users/rajkumar/Desktop/uidi/UIDAI/UIDAI_SITAA_PDD_Review.pdf"
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SITAA_PDD_Review.pdf")
 
 # ---------------------------------------------------------------- styles
 styles = getSampleStyleSheet()
@@ -102,7 +103,7 @@ def problem(num, sev, where, title_txt, what, why, fix):
 
 # ================================================================ COVER
 story.append(Spacer(1, 6))
-story.append(Paragraph("UIDAI SITAA &mdash; Project Design Document", title_style))
+story.append(Paragraph("SITAA &mdash; Project Design Document", title_style))
 story.append(Paragraph("Critical Review: Problems, Gaps &amp; Inconsistencies", subtitle_style))
 story.append(HRFlowable(width="100%", thickness=1.4, color=NAVY, spaceBefore=6, spaceAfter=8))
 
@@ -228,10 +229,10 @@ problem(
     "DSA signing is under-specified and an unusual choice",
     "The design specifies a &ldquo;DSA signature of the biometric hash&rdquo; with a device-specific key, but "
     "gives no key size and chooses DSA over RSA/ECDSA.",
-    "For UIDAI device attestation, DSA is an unusual selection; it also fails catastrophically (private-key "
+    "For Aadhaar device attestation, DSA is an unusual selection; it also fails catastrophically (private-key "
     "recovery) if the per-signature nonce is ever reused or weakly generated. An unspecified key size invites "
     "a follow-up question.",
-    "Either justify DSA against the UIDAI device-key specification and state the key size and nonce-generation "
+    "Either justify DSA against the Aadhaar device-key specification and state the key size and nonce-generation "
     "guarantee, or switch to ECDSA/RSA in line with the rest of the crypto stack.")
 
 # ================================================================ GROUP B
@@ -257,7 +258,7 @@ problem(
     "90% TAR is a contact-based extrapolation against a contact gallery",
     "The headline accuracy KR is TAR&nbsp;&ge;&nbsp;90% at FAR&nbsp;0.01%, flagged as &ldquo;extrapolated "
     "from contact-based benchmarks&rdquo; to be revalidated at M4.",
-    "The real task is matching a <b>contactless probe against UIDAI&rsquo;s contact-based gallery</b>. "
+    "The real task is matching a <b>contactless probe against the authority&rsquo;s contact-based gallery</b>. "
     "Cross-domain (contactless-to-contact) matching in the published literature typically sits well below "
     "90% at FAR&nbsp;0.01%. Even with the asterisk, stating 90% invites the &ldquo;unrealistic target&rdquo; "
     "critique and sets up the pilot to look like a miss.",
@@ -282,7 +283,7 @@ problem(
     "Interoperability validated with proxy matchers, not the real AFIS",
     "Cross-sensor interoperability is validated using SourceAFIS and BOZORTH3 against the Mantra MFS100 and "
     "Startek FM220U, supplemented by NIST BIOMDI conformance.",
-    "The production matcher is UIDAI&rsquo;s proprietary AFIS. Good scores on open-source matchers do not "
+    "The production matcher is the authority&rsquo;s proprietary AFIS. Good scores on open-source matchers do not "
     "guarantee equivalent behaviour on AFIS, so the validation methodology is a proxy that may not predict "
     "the outcome that actually matters.",
     "Keep the open-matcher validation as an early signal, but state clearly that it is a proxy, and make "
@@ -356,7 +357,7 @@ problem(
     "session key is generated per transaction, but a deterministic, low-entropy, attacker-predictable IV is a "
     "smell that a security reviewer will challenge.",
     "Either state explicitly that the per-transaction fresh key guarantees (key,&nbsp;IV) uniqueness, or use a "
-    "cryptographically random 96-bit IV. If the timestamp derivation is mandated verbatim by the UIDAI RD "
+    "cryptographically random 96-bit IV. If the timestamp derivation is mandated verbatim by the Aadhaar RD "
     "specification, cite that clause.")
 
 problem(
@@ -365,15 +366,15 @@ problem(
     "RSA-2048 uses PKCS#1 v1.5 padding",
     "Session-key wrapping uses RSA-2048 with &ldquo;ECB/PKCS1Padding&rdquo;.",
     "PKCS#1 v1.5 is the legacy padding associated with Bleichenbacher-style padding-oracle attacks; OAEP is "
-    "the modern best practice. If this is not a hard UIDAI mandate it will be flagged.",
-    "If UIDAI mandates PKCS#1 v1.5, cite the specification clause explicitly so it reads as compliance, not a "
+    "the modern best practice. If this is not a hard mandate it will be flagged.",
+    "If the authority mandates PKCS#1 v1.5, cite the specification clause explicitly so it reads as compliance, not a "
     "design choice; otherwise move to RSA-OAEP.")
 
 problem(
     15, "MED",
     "&sect;2.2 Anti-Tamper; &sect;4.1 RD Service Compatibility",
     "Software Keystore pilot undercuts the L1 attestation story",
-    "The design claims a three-tier PKI chain (UIDAI Root &rarr; Device Provider &rarr; Device Key) plus "
+    "The design claims a three-tier PKI chain (Authority Root &rarr; Device Provider &rarr; Device Key) plus "
     "anti-tamper (root/Frida detection, OLLVM, Play Integrity), while the pilot keys live in <b>software</b> "
     "Android Keystore.",
     "On a rooted device, software-held keys and detection heuristics are bypassable, so the pilot &ldquo;device "
@@ -391,10 +392,10 @@ problem(
     "&sect;1.2; &sect;2.3 Interoperability",
     "Sending Bio type FIR (image) for authentication is unusual",
     "The PID block carries both FIR (ISO 19794-4 image record) and FMR (ISO 19794-2 minutiae record).",
-    "UIDAI authentication has historically processed <b>FMR minutiae</b> from registered devices; pushing a "
+    "Aadhaar authentication has historically processed <b>FMR minutiae</b> from registered devices; pushing a "
     "full image record (FIR) for a 1:1 auth transaction is unusual, larger on the wire, and may not be "
     "accepted by the Auth API for the authentication (as opposed to enrolment) use case.",
-    "Confirm against UIDAI Authentication API v2.5 that FIR is accepted for the auth use case; if not, default "
+    "Confirm against Aadhaar Authentication API v2.5 that FIR is accepted for the auth use case; if not, default "
     "to FMR for auth and reserve FIR for enrolment / interoperability testing.")
 
 problem(
@@ -476,7 +477,7 @@ def on_page(canvas, doc):
     canvas.saveState()
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(GREY)
-    canvas.drawString(20*mm, 12*mm, "UIDAI SITAA PDD — Critical Review")
+    canvas.drawString(20*mm, 12*mm, "SITAA PDD — Critical Review")
     canvas.drawRightString(190*mm, 12*mm, f"Page {doc.page}")
     canvas.setStrokeColor(colors.HexColor("#CBD5E1"))
     canvas.setLineWidth(0.4)
@@ -487,7 +488,7 @@ doc = SimpleDocTemplate(
     OUT, pagesize=A4,
     leftMargin=20*mm, rightMargin=20*mm,
     topMargin=16*mm, bottomMargin=18*mm,
-    title="UIDAI SITAA PDD - Critical Review",
+    title="SITAA PDD - Critical Review",
     author="Technical Review",
 )
 doc.build(story, onFirstPage=on_page, onLaterPages=on_page)

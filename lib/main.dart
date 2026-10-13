@@ -38,14 +38,14 @@ class _YellowSenseAppState extends State<YellowSenseApp> {
   Widget build(BuildContext context) {
     if (_showSplash) {
       return MaterialApp(
-        title: 'YellowSense UIDAI',
+        title: 'YellowSense Contactless',
         debugShowCheckedModeBanner: false,
         theme: YS.theme,
         home: SplashScreen(onDone: () => setState(() => _showSplash = false)),
       );
     }
     return MaterialApp.router(
-      title: 'YellowSense UIDAI',
+      title: 'YellowSense Contactless',
       debugShowCheckedModeBanner: false,
       theme: YS.theme,
       routerConfig: appRouter,

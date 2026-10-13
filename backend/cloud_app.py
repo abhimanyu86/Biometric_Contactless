@@ -59,7 +59,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-DATABASE = os.environ.get("DATABASE", os.path.join(BASE_DIR, "uidai.db"))
+DATABASE = os.environ.get("DATABASE", os.path.join(BASE_DIR, "contactless.db"))
 SLAP_DB  = os.environ.get("SLAP_DB", os.path.join(BASE_DIR, "slap.db"))
 
 SINGLE_THRESHOLD = 0.20

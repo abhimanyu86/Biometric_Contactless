@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A contactless fingerprint authentication SDK for the UIDAI SITAA challenge (project
+A contactless fingerprint authentication SDK for the SITAA challenge (project
 `SU-C1-2025-02`, YellowSense Technologies). Capture a fingerprint with a phone camera
 instead of a certified contact scanner, and produce an ISO-conformant template that
 Aadhaar's matching infrastructure can use.
@@ -31,7 +31,7 @@ flutter build apk --debug            # what CI builds
 
 # Backends — two separate servers, run both
 cd backend
-PORT=5002 python app.py              # single-finger  -> uidai.db
+PORT=5002 python app.py              # single-finger  -> contactless.db
 PORT=5010 python slap_app.py         # 4-finger slap  -> slap.db
 
 # Tests — no model weights, database or TensorFlow required
@@ -40,7 +40,7 @@ python -m pytest tests/ -v
 python -m pytest tests/test_matching.py -v
 python -m pytest tests/test_matching.py::test_rotation_invariance -v
 
-# FAR/FRR/EER benchmark — reads the users table of backend/uidai.db,
+# FAR/FRR/EER benchmark — reads the users table of backend/contactless.db,
 # writes benchmark_results.csv and eer_plot.png
 cd backend && python benchmark.py
 
@@ -65,7 +65,7 @@ One Flutter app, two Flask backends, selected by a mode toggle:
 ```
 Flutter app  (lib/)  — CaptureMode.single | CaptureMode.slap
       |
-      +--> app.py       :5002  single finger  -> uidai.db
+      +--> app.py       :5002  single finger  -> contactless.db
       +--> slap_app.py  :5010  4-finger slap  -> slap.db
 ```
 

@@ -739,7 +739,7 @@ def render_header(base_url: str):
     col_left, col_right = st.columns([3, 1])
     with col_left:
         st.markdown(
-            "<h1 style='margin:0; font-size:1.72rem; font-weight:800; color:#4f3407;'>UIDAI SITAA Desktop Tool</h1>"
+            "<h1 style='margin:0; font-size:1.72rem; font-weight:800; color:#4f3407;'>SITAA Desktop Tool</h1>"
             "<div style='color:#8a5b11; font-size:0.9rem; font-weight:700; margin-top:2px;'>YellowSense fingerprint quality console</div>",
             unsafe_allow_html=True,
         )
@@ -1166,7 +1166,7 @@ def render_contact_tab(base_url: str):
 def main():
     page_icon = Image.open(LOGO_PATH) if LOGO_PATH.exists() else None
     st.set_page_config(
-        page_title="UIDAI SITAA Desktop Tool",
+        page_title="SITAA Desktop Tool",
         page_icon=page_icon,
         layout="wide",
     )

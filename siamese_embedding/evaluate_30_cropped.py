@@ -20,8 +20,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 from embed_resnet50 import build_embedder, INPUT_SIZE, _IMAGENET_MEAN, _IMAGENET_STD  # noqa: E402
 from evaluate import compute_metrics, write_csv, write_plot, accuracy_at_threshold  # noqa: E402
 
-IMAGE_DB_CROPPED = r"D:\UIDAI\image_db_cropped"
-TEST_DB_CROPPED = r"D:\UIDAI\test_db_cropped"
+IMAGE_DB_CROPPED = r"D:\Contactless\image_db_cropped"
+TEST_DB_CROPPED = r"D:\Contactless\test_db_cropped"
 OUT_CSV = os.path.join(BASE_DIR, "benchmark_results_30_cropped.csv")
 OUT_PLOT = os.path.join(BASE_DIR, "eer_plot_30_cropped.png")
 ILLUSTRATIVE_THRESHOLD = 0.75

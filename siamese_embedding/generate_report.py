@@ -71,7 +71,7 @@ def build():
 
     story.append(Paragraph("CNN / Siamese Embedding Matching — Phase A Results", title_style))
     story.append(Paragraph(
-        "Contactless Fingerprint Matching SDK (UIDAI SITAA, project SU-C1-2025-02) — "
+        "Contactless Fingerprint Matching SDK (SITAA, project SU-C1-2025-02) — "
         "off-the-shelf pretrained CNN embedding baseline",
         subtitle_style,
     ))

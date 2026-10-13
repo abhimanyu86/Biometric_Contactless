@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:yellowsense_uidai/main.dart';
+import 'package:yellowsense_contactless/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {

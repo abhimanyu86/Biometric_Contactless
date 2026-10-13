@@ -1,4 +1,4 @@
-# YellowSense UIDAI — Team Onboarding & Work Guide
+# YellowSense Contactless — Team Onboarding & Work Guide
 
 > Read this **fully and in order** before touching any code.  
 > This tells you exactly how to set up, build the app, install it on your phone, and start working.

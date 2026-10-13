@@ -60,11 +60,11 @@ def to_wsl_path(win_path):
 # Placeholder samples -- swap for the real target-domain "contactless enhanced"
 # images once available (drop them into this folder and re-point this list).
 SAMPLE_IMAGES = [
-    r"D:\UIDAI\image_db\Person_01.jpeg",
-    r"D:\UIDAI\image_db\Person_05.jpeg",
-    r"D:\UIDAI\image_db\Person10.png",
-    r"D:\UIDAI\image_db\Person_03.jpeg",
-    r"D:\UIDAI\image_db\Person15.png",
+    r"D:\Contactless\image_db\Person_01.jpeg",
+    r"D:\Contactless\image_db\Person_05.jpeg",
+    r"D:\Contactless\image_db\Person10.png",
+    r"D:\Contactless\image_db\Person_03.jpeg",
+    r"D:\Contactless\image_db\Person15.png",
 ]
 
 

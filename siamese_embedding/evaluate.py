@@ -7,7 +7,7 @@ Contactless_Fingerprint_Matching_Next_Plan.pdf.
 
 Mirrors the FAR/FRR/EER sweep already used in backend/benchmark.py
 (compute_metrics/write_csv/write_plot) rather than reinventing it, adapted to take
-score arrays directly instead of reading backend/uidai.db.
+score arrays directly instead of reading backend/contactless.db.
 """
 import os
 import csv

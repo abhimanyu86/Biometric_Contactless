@@ -1,7 +1,7 @@
 """
 Local gallery store for the bench.
 
-Deliberately separate from the backend's uidai.db. The server's /users endpoint does
+Deliberately separate from the backend's contactless.db. The server's /users endpoint does
 not return template_json, so a ranked 1:N table can only be built from templates the
 bench holds itself. Keeping it local also means testing never writes into the shared
 GCP database unless you explicitly ask it to.

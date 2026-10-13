@@ -1,4 +1,4 @@
-# UIDAI Unified App (Single + Slap)
+# Unified Contactless App (Single + Slap)
 
 This branch contains a single Flutter app that supports:
 
@@ -7,7 +7,7 @@ This branch contains a single Flutter app that supports:
 
 The two backends keep separate databases:
 
-- single: `uidai.db`
+- single: `contactless.db`
 - slap: `slap.db`
 
 ## Prerequisites

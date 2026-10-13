@@ -346,7 +346,7 @@ def render_dataset_tab(base_url: str) -> None:
 
             st.divider()
             also_server = st.checkbox(
-                "Also enrol on the backend (writes into the server's uidai.db)", value=False)
+                "Also enrol on the backend (writes into the server's contactless.db)", value=False)
             batch = st.text_input("Server batch name", value=DEFAULT_BATCH,
                                   disabled=not also_server)
             submitted = st.form_submit_button("Enrol all", type="primary")
