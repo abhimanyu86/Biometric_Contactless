@@ -1,0 +1,40 @@
+{
+  "decoded": true,
+  "data": "https://drive.google.com/drive/folders/17kJVeg3TGIXIOAsrWNwUH2zr7Ib3MZ75?usp=sharing",
+  "kind": "url",
+  "host": "drive.google.com",
+  "note": "Decoded string is a Google Drive FOLDER share link (not a company website or landing page). Treated purely as data; the URL was NOT opened or fetched. Someone at YellowSense should confirm that this is the intended destination for visitors, that the folder is public, and what it contains, before the QR is shown on a TV at a government expo.",
+  "poster_card_label": "EXPLORE MORE",
+  "decoders_agreeing": [
+    "cv2.QRCodeDetector",
+    "cv2.wechat_qrcode_WeChatQRCode"
+  ],
+  "decode_variants_that_worked": "cv2.QRCodeDetector decodes the raw crop at 1x-4x (INTER_NEAREST and INTER_CUBIC), grayscale, Otsu, with a 60px white quiet-zone border; every successful variant returned the identical string.",
+  "poster_bbox_px": {
+    "x0": 742,
+    "x1": 903,
+    "y0": 296,
+    "y1": 456,
+    "width": 162,
+    "height": 161
+  },
+  "files": {
+    "qr_poster_crop.png": "raw crop from the poster (242x241), card background normalised to white, white margin around; decodes to the same string",
+    "qr_clean.png": "regenerated crisp QR, black on white, 800x800, nearest-neighbour modules, quiet zone of at least 4 modules"
+  },
+  "clean_qr": {
+    "library": "segno",
+    "version": 5,
+    "modules": "37x37",
+    "error_correction": "M",
+    "mode": "byte",
+    "module_px": 17,
+    "border_modules": 4,
+    "size_px": [
+      800,
+      800
+    ],
+    "verified_decode_matches_poster_string": true
+  },
+  "caveat": "The regenerated QR encodes the same string but is not module-for-module identical to the poster's (different version/mask/ECC); both scan to the same URL."
+}

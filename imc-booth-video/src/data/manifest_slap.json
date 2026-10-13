@@ -1,0 +1,875 @@
+{
+ "source": "C:\\Users\\ABHIMANYU MALIK\\Downloads\\video2.mp4",
+ "sourceDurationSec": 95.313,
+ "sourceTimeBasis": "true presentation timestamps from ffmpeg showinfo (NOT cv2 time-seek, which is off by up to ~1.4 s on this VFR file)",
+ "outputSpec": "720x1560, constant 30 fps, H.264 crf16 yuv420p, no audio, faststart",
+ "clips": [
+  {
+   "id": "slap_home",
+   "file": "build/clips/slap_home.mp4",
+   "still": "build/clips/slap_home.png",
+   "srcStartSec": 0.0,
+   "srcEndSec": 0.861,
+   "speed": 0.99,
+   "speedSegments": [
+    {
+     "srcFromSec": 0.0,
+     "srcToSec": 0.861,
+     "speed": 1.0,
+     "outFromSec": 0.0
+    }
+   ],
+   "durationSec": 3.0,
+   "frames": 90,
+   "fps": 30.0,
+   "width": 720,
+   "height": 1560,
+   "description": "Slap-mode home screen: Single/Slap toggle (Slap active, gold), blue 'Multi-Finger Slap Auth' hero card ('UIDAI - SITAA Cohort 1', chips YOLO / U2Net / ZeroDCE / MinutiaeNet / Aggregate) and the 4x Fingers / 1:N Auth / 1:1 Verify stat tiles, ACTIONS header with Enroll/Authenticate tiles peeking at the bottom. Only 0.87 s of settled footage exists before the app scrolls, so the remaining 2.13 s is a hold on the last tap-ring-free frame.",
+   "keyMoments": [
+    {
+     "tSec": 0.0,
+     "srcSec": 0.0,
+     "what": "Home screen, Slap mode, hero card fully visible (cleanest start of the recording)"
+    },
+    {
+     "tSec": 0.86,
+     "srcSec": 0.86,
+     "what": "Source starts scrolling after this; clip holds this frame (frozen) until 3.0 s"
+    }
+   ],
+   "zoomRegions": [
+    {
+     "x": 40,
+     "y": 640,
+     "w": 640,
+     "h": 540,
+     "tStartSec": 0.0,
+     "tEndSec": 3.0,
+     "why": "Hero-card sub-copy, tech chips (YOLO/U2Net/ZeroDCE/MinutiaeNet/Aggregate) and the 4x Fingers / 1:N Auth / 1:1 Verify stat tiles are small text at 55% scale"
+    }
+   ],
+   "frozenTail": {
+    "fromSec": 0.87,
+    "toSec": 3.0,
+    "frozenFrom": "src ~0.86 s (frame idx 38)"
+   }
+  },
+  {
+   "id": "slap_enroll_form",
+   "file": "build/clips/slap_enroll_form.mp4",
+   "still": "build/clips/slap_enroll_form.png",
+   "srcStartSec": 3.906,
+   "srcEndSec": 18.51,
+   "speed": 3.37,
+   "speedSegments": [
+    {
+     "srcFromSec": 3.906,
+     "srcToSec": 5.335,
+     "speed": 2.5,
+     "outFromSec": 0.0
+    },
+    {
+     "srcFromSec": 5.354,
+     "srcToSec": 16.295,
+     "speed": 5,
+     "outFromSec": 0.578
+    },
+    {
+     "srcFromSec": 16.315,
+     "srcToSec": 17.59,
+     "speed": 2,
+     "outFromSec": 2.77
+    },
+    {
+     "srcFromSec": 17.606,
+     "srcToSec": 18.51,
+     "speed": 1,
+     "outFromSec": 3.416
+    }
+   ],
+   "durationSec": 4.333,
+   "frames": 130,
+   "fps": 30.0,
+   "width": 720,
+   "height": 1560,
+   "description": "Slap Enroll form: first visible empty (Full Name, Aadhaar UID, Region/State, Hand toggle defaulting to Right), then name 'shiv' typed, UID '121212121212' typed, state dropdown opened and Gujarat picked, Hand switched to LEFT, ending on the filled form. Sped 2.5x / 5x / 2x, then 1x for the last 0.9 s.",
+   "keyMoments": [
+    {
+     "tSec": 0.0,
+     "srcSec": 3.905,
+     "what": "Slap Enroll screen first fully rendered, empty fields, Hand = Right (default)"
+    },
+    {
+     "tSec": 0.62,
+     "srcSec": 5.55,
+     "what": "Full Name field focused, keyboard opens"
+    },
+    {
+     "tSec": 1.19,
+     "srcSec": 8.4,
+     "what": "Name 'shiv' entered, UID field focused"
+    },
+    {
+     "tSec": 2.73,
+     "srcSec": 16.1,
+     "what": "UID 121212121212 entered"
+    },
+    {
+     "tSec": 2.82,
+     "srcSec": 16.4,
+     "what": "Region/State dropdown list opens (Andhra Pradesh ...)"
+    },
+    {
+     "tSec": 3.37,
+     "srcSec": 17.5,
+     "what": "Gujarat selected, dropdown closes"
+    },
+    {
+     "tSec": 3.87,
+     "srcSec": 18.05,
+     "what": "Hand toggle switched to LEFT hand"
+    },
+    {
+     "tSec": 4.32,
+     "srcSec": 18.5,
+     "what": "Final filled form: shiv / 121212121212 / Gujarat / Left hand"
+    }
+   ],
+   "zoomRegions": [
+    {
+     "x": 30,
+     "y": 215,
+     "w": 660,
+     "h": 660,
+     "tStartSec": 0.6,
+     "tEndSec": 2.8,
+     "why": "Full Name, Aadhaar UID, Region/State fields and Hand toggle: typed values (shiv, 121212121212) are small at 55% scale; layout unchanged while the keyboard is open"
+    },
+    {
+     "x": 30,
+     "y": 215,
+     "w": 660,
+     "h": 660,
+     "tStartSec": 3.45,
+     "tEndSec": 4.33,
+     "why": "Completed form: shiv / 121212121212 / Gujarat / Left hand selected"
+    }
+   ]
+  },
+  {
+   "id": "slap_enroll_capture",
+   "file": "build/clips/slap_enroll_capture.mp4",
+   "still": "build/clips/slap_enroll_capture.png",
+   "srcStartSec": 21.355,
+   "srcEndSec": 30.976,
+   "speed": 1.04,
+   "speedSegments": [
+    {
+     "srcFromSec": 21.355,
+     "srcToSec": 22.192,
+     "speed": 2,
+     "outFromSec": 0.0
+    },
+    {
+     "srcFromSec": 22.208,
+     "srcToSec": 30.976,
+     "speed": 1,
+     "outFromSec": 0.427
+    }
+   ],
+   "durationSec": 9.233,
+   "frames": 277,
+   "fps": 30.0,
+   "width": 720,
+   "height": 1560,
+   "description": "Slap Enroll camera: camera view with gold four-finger silhouette overlay and caption 'Place all four fingers sideways'; four fingers of the left hand enter and are positioned sideways; caption turns orange 'Place your hand in the frame'; yellow detection boxes with 'Hold - capturing...'; then green rounded detection boxes with the 'Hold still / Capturing and checking liveness...' toast. 3 shutter-flash black frames (29.93-29.96 s) removed. The 'Image captured' label is NOT in this clip; it appears in slap_enroll_process.",
+   "keyMoments": [
+    {
+     "tSec": 0.0,
+     "srcSec": 21.35,
+     "what": "Camera open with finger silhouette overlay, caption 'Place all four fingers sideways'"
+    },
+    {
+     "tSec": 0.68,
+     "srcSec": 22.45,
+     "what": "Four fingers enter the frame"
+    },
+    {
+     "tSec": 1.83,
+     "srcSec": 23.6,
+     "what": "Fingers in place sideways, silhouette overlay fading"
+    },
+    {
+     "tSec": 7.43,
+     "srcSec": 29.2,
+     "what": "Caption turns orange: 'Place your hand in the frame'"
+    },
+    {
+     "tSec": 7.93,
+     "srcSec": 29.7,
+     "what": "Yellow boxes + 'Hold - capturing...' caption"
+    },
+    {
+     "tSec": 8.21,
+     "srcSec": 29.98,
+     "what": "Green rounded detection boxes + 'Hold still, Capturing and checking liveness...' toast"
+    },
+    {
+     "tSec": 9.21,
+     "srcSec": 30.98,
+     "what": "Last frame before app switches back to the form (capture complete)"
+    }
+   ],
+   "zoomRegions": [
+    {
+     "x": 0,
+     "y": 1325,
+     "w": 720,
+     "h": 135,
+     "tStartSec": 0.0,
+     "tEndSec": 8.2,
+     "why": "Camera guidance caption strip: 'Tap anywhere to focus' chip + 'Place all four fingers sideways' / 'Place your hand in the frame' / 'Hold - capturing...'"
+    },
+    {
+     "x": 70,
+     "y": 655,
+     "w": 580,
+     "h": 160,
+     "tStartSec": 8.2,
+     "tEndSec": 9.23,
+     "why": "'Hold still - Capturing and checking liveness...' toast over the green detection boxes"
+    }
+   ],
+   "removedGlitchFramesSrcSec": [
+    29.927,
+    29.96
+   ]
+  },
+  {
+   "id": "slap_enroll_process",
+   "file": "build/clips/slap_enroll_process.mp4",
+   "still": "build/clips/slap_enroll_process.png",
+   "srcStartSec": 30.993,
+   "srcEndSec": 36.939,
+   "speed": 1.41,
+   "speedSegments": [
+    {
+     "srcFromSec": 30.993,
+     "srcToSec": 33.193,
+     "speed": 2.5,
+     "outFromSec": 0.0
+    },
+    {
+     "srcFromSec": 33.21,
+     "srcToSec": 35.689,
+     "speed": 1,
+     "outFromSec": 0.887
+    },
+    {
+     "srcFromSec": 35.706,
+     "srcToSec": 36.939,
+     "speed": 1.5,
+     "outFromSec": 3.383
+    }
+   ],
+   "durationSec": 4.233,
+   "frames": 127,
+   "fps": 30.0,
+   "width": 720,
+   "height": 1560,
+   "description": "Enrolment processing: form with empty PROCESSING PROGRESS checklist, view scrolls to the captured preview ('Checking capture...', Processing... button), checklist ticks through Slap image capture / Four-finger quality checks / Four finger ROI crops / Liveness detection for all fingers / Segmentation and preprocessing / Four fingerprint images created with a running timer, ends at 8.08 s with all six ticks, 'Image captured', 'Use This Image' enabled, Enroll Slap button and 'Slap captured' snackbar visible. Sped 2.5x, 1x, 1.5x.",
+   "keyMoments": [
+    {
+     "tSec": 0.0,
+     "srcSec": 30.99,
+     "what": "Form with idle (grey) processing checklist and Enroll Slap button"
+    },
+    {
+     "tSec": 0.65,
+     "srcSec": 32.6,
+     "what": "View scrolled to captured preview with green boxes, 'Checking capture...', 'Processing...' button"
+    },
+    {
+     "tSec": 1.09,
+     "srcSec": 33.4,
+     "what": "Checklist running, timer ~6 s, first four ticks done"
+    },
+    {
+     "tSec": 2.69,
+     "srcSec": 35.0,
+     "what": "'Segmentation and preprocessing' in progress, timer ~7.8 s"
+    },
+    {
+     "tSec": 3.29,
+     "srcSec": 35.6,
+     "what": "All six ticks done, timer 8.08 s, 'Image captured', 'Use This Image' enabled"
+    },
+    {
+     "tSec": 4.03,
+     "srcSec": 36.67,
+     "what": "Use This Image tapped"
+    },
+    {
+     "tSec": 4.18,
+     "srcSec": 36.9,
+     "what": "Enroll Slap button and 'Slap captured' snackbar visible (end of clip)"
+    }
+   ],
+   "zoomRegions": [
+    {
+     "x": 40,
+     "y": 1019,
+     "w": 640,
+     "h": 451,
+     "tStartSec": 1.73,
+     "tEndSec": 3.53,
+     "why": "Processing checklist (Slap image capture ... Four fingerprint images created) with the running timer top-right; ticks fill in during this window"
+    },
+    {
+     "x": 40,
+     "y": 769,
+     "w": 640,
+     "h": 481,
+     "tStartSec": 3.67,
+     "tEndSec": 4.23,
+     "why": "Checklist fully ticked with final timer 8.08 s, Enroll Slap button below"
+    }
+   ]
+  },
+  {
+   "id": "slap_enroll_success",
+   "file": "build/clips/slap_enroll_success.mp4",
+   "still": "build/clips/slap_enroll_success.png",
+   "srcStartSec": 36.957,
+   "srcEndSec": 39.894,
+   "speed": 0.99,
+   "speedSegments": [
+    {
+     "srcFromSec": 36.957,
+     "srcToSec": 39.894,
+     "speed": 1,
+     "outFromSec": 0.0
+    }
+   ],
+   "durationSec": 2.967,
+   "frames": 89,
+   "fps": 30.0,
+   "width": 720,
+   "height": 1560,
+   "description": "EXTRA clip (not requested): the only explicit enrolment confirmation in the footage. Enroll Slap is tapped, a spinner shows, then a green card '4 finger(s) enrolled successfully!' lists LEFT INDEX / LEFT MIDDLE / LEFT RING / LEFT LITTLE: 512 dimensions each. 1x.",
+   "keyMoments": [
+    {
+     "tSec": 0.0,
+     "srcSec": 36.95,
+     "what": "Enroll Slap button + 'Slap captured' snackbar"
+    },
+    {
+     "tSec": 0.6,
+     "srcSec": 37.55,
+     "what": "Enroll Slap tapped"
+    },
+    {
+     "tSec": 0.95,
+     "srcSec": 37.9,
+     "what": "Loading spinner / placeholder"
+    },
+    {
+     "tSec": 1.1,
+     "srcSec": 38.05,
+     "what": "Green success card appears: '4 finger(s) enrolled successfully!'"
+    },
+    {
+     "tSec": 2.05,
+     "srcSec": 39.0,
+     "what": "Success card fully settled, 4 x 512 dimensions listed"
+    },
+    {
+     "tSec": 2.95,
+     "srcSec": 39.9,
+     "what": "Last settled frame before the page scrolls back up"
+    }
+   ],
+   "zoomRegions": [
+    {
+     "x": 0,
+     "y": 1270,
+     "w": 720,
+     "h": 200,
+     "tStartSec": 0.0,
+     "tEndSec": 1.2,
+     "why": "Enroll Slap button and the green 'Slap captured' confirmation snackbar before the Enroll tap"
+    },
+    {
+     "x": 40,
+     "y": 895,
+     "w": 640,
+     "h": 360,
+     "tStartSec": 2.2,
+     "tEndSec": 2.97,
+     "why": "Green '4 finger(s) enrolled successfully!' card listing LEFT INDEX/MIDDLE/RING/LITTLE: 512 dimensions - the only explicit enrolment confirmation in the footage"
+    }
+   ]
+  },
+  {
+   "id": "slap_auth_capture",
+   "file": "build/clips/slap_auth_capture.mp4",
+   "still": "build/clips/slap_auth_capture.png",
+   "srcStartSec": 47.847,
+   "srcEndSec": 53.983,
+   "speed": 1.0,
+   "speedSegments": [
+    {
+     "srcFromSec": 47.847,
+     "srcToSec": 53.983,
+     "speed": 1,
+     "outFromSec": 0.0
+    }
+   ],
+   "durationSec": 6.167,
+   "frames": 185,
+   "fps": 30.0,
+   "width": 720,
+   "height": 1560,
+   "description": "Slap Authenticate camera: camera opens (dark for ~0.3 s while initialising), four left fingers enter and are held sideways under the gold silhouette and 'Place all four fingers sideways' caption, then green rounded detection boxes with the 'Hold still / Capturing and checking liveness...' toast. 4 shutter-flash black frames (52.02-52.07 s) removed. 1x.",
+   "keyMoments": [
+    {
+     "tSec": 0.01,
+     "srcSec": 47.85,
+     "what": "Camera opening (dark init frame with silhouette overlay)"
+    },
+    {
+     "tSec": 0.56,
+     "srcSec": 48.4,
+     "what": "Auto-exposure settles; fingers start entering"
+    },
+    {
+     "tSec": 1.16,
+     "srcSec": 49.0,
+     "what": "Four fingers in frame, sideways, silhouette overlay"
+    },
+    {
+     "tSec": 4.23,
+     "srcSec": 52.07,
+     "what": "Green detection boxes + 'Hold still, Capturing and checking liveness...' toast"
+    },
+    {
+     "tSec": 6.14,
+     "srcSec": 53.98,
+     "what": "Last frame before app returns to the form"
+    }
+   ],
+   "zoomRegions": [
+    {
+     "x": 0,
+     "y": 1325,
+     "w": 720,
+     "h": 135,
+     "tStartSec": 0.0,
+     "tEndSec": 4.2,
+     "why": "Camera guidance caption strip and 'Tap anywhere to focus' chip"
+    },
+    {
+     "x": 70,
+     "y": 655,
+     "w": 580,
+     "h": 160,
+     "tStartSec": 4.23,
+     "tEndSec": 6.17,
+     "why": "'Hold still - Capturing and checking liveness...' toast over the four green detection boxes"
+    }
+   ],
+   "removedGlitchFramesSrcSec": [
+    52.016,
+    52.066
+   ]
+  },
+  {
+   "id": "slap_auth_process",
+   "file": "build/clips/slap_auth_process.mp4",
+   "still": "build/clips/slap_auth_process.png",
+   "srcStartSec": 54.002,
+   "srcEndSec": 61.048,
+   "speed": 1.64,
+   "speedSegments": [
+    {
+     "srcFromSec": 54.002,
+     "srcToSec": 55.487,
+     "speed": 3,
+     "outFromSec": 0.0
+    },
+    {
+     "srcFromSec": 55.51,
+     "srcToSec": 60.196,
+     "speed": 1.6,
+     "outFromSec": 0.502
+    },
+    {
+     "srcFromSec": 60.215,
+     "srcToSec": 61.048,
+     "speed": 1,
+     "outFromSec": 3.444
+    }
+   ],
+   "durationSec": 4.3,
+   "frames": 129,
+   "fps": 30.0,
+   "width": 720,
+   "height": 1560,
+   "description": "Authenticate processing: form (Region Gujarat, Left hand, empty checklist), then captured preview, checklist ticking to completion with timer ending at 10.84 s and 'Use This Image' enabled, then the MATCHING / API TIME counter running up to 0.68 s with grey result placeholders; cut one frame before the AUTHENTICATED card appears. Sped 3x, 1.6x, then 1x for the matching counter.",
+   "keyMoments": [
+    {
+     "tSec": 0.01,
+     "srcSec": 54.01,
+     "what": "Slap Authenticate form, empty checklist"
+    },
+    {
+     "tSec": 0.5,
+     "srcSec": 55.5,
+     "what": "Checklist running, timer ~7.3 s"
+    },
+    {
+     "tSec": 2.32,
+     "srcSec": 58.4,
+     "what": "'Segmentation and preprocessing' in progress, timer ~9.3 s"
+    },
+    {
+     "tSec": 3.13,
+     "srcSec": 59.7,
+     "what": "All six ticks done, timer 10.84 s, 'Use This Image' enabled"
+    },
+    {
+     "tSec": 3.84,
+     "srcSec": 60.6,
+     "what": "MATCHING / API TIME counter running (~0.2-0.3 s), grey result placeholders"
+    },
+    {
+     "tSec": 4.29,
+     "srcSec": 61.05,
+     "what": "Matching counter 0.68 s - last frame before the result card"
+    }
+   ],
+   "zoomRegions": [
+    {
+     "x": 40,
+     "y": 1110,
+     "w": 640,
+     "h": 360,
+     "tStartSec": 1.0,
+     "tEndSec": 2.03,
+     "why": "Processing checklist top items + running timer (7.x s)"
+    },
+    {
+     "x": 40,
+     "y": 746,
+     "w": 640,
+     "h": 480,
+     "tStartSec": 2.23,
+     "tEndSec": 3.13,
+     "why": "Full processing checklist with running timer (9.x-10.x s)"
+    },
+    {
+     "x": 40,
+     "y": 840,
+     "w": 640,
+     "h": 480,
+     "tStartSec": 3.13,
+     "tEndSec": 3.9,
+     "why": "Checklist completed, timer frozen at 10.84 s"
+    },
+    {
+     "x": 40,
+     "y": 420,
+     "w": 640,
+     "h": 600,
+     "tStartSec": 4.1,
+     "tEndSec": 4.3,
+     "why": "Final timer 10.84 s plus 'MATCHING / API TIME' counter (0.68 s) just before the result card"
+    }
+   ]
+  },
+  {
+   "id": "slap_auth_result",
+   "file": "build/clips/slap_auth_result.mp4",
+   "still": "build/clips/slap_auth_result.png",
+   "srcStartSec": 61.08,
+   "srcEndSec": 64.983,
+   "speed": 0.99,
+   "speedSegments": [
+    {
+     "srcFromSec": 61.08,
+     "srcToSec": 64.983,
+     "speed": 1,
+     "outFromSec": 0.0
+    }
+   ],
+   "durationSec": 4.8,
+   "frames": 144,
+   "fps": 30.0,
+   "width": 720,
+   "height": 1560,
+   "description": "AUTHENTICATED result: card scrolls into view under 'MATCHING / API TIME 0.69 s', then holds on the full card - Name: shiv, UID: 121212121212, Average confidence: 89.3%, Fingers passed: 4 / 2 required, Per-finger threshold: 78.0%, Finger results LEFT INDEX 88.4% PASSED, LEFT MIDDLE 90.7% PASSED, LEFT RING 83.7% PASSED, LEFT LITTLE 94.3% PASSED. 1x; the settled full-card footage is ~2.0 s natural, so the last 0.87 s is a hold on the final clean frame.",
+   "keyMoments": [
+    {
+     "tSec": 0.01,
+     "srcSec": 61.07,
+     "what": "AUTHENTICATED card first appears at the bottom, MATCHING / API TIME 0.69 s"
+    },
+    {
+     "tSec": 1.54,
+     "srcSec": 62.6,
+     "what": "Page scrolled: full card incl. finger results visible"
+    },
+    {
+     "tSec": 1.94,
+     "srcSec": 63.0,
+     "what": "Card fully settled and tap-ring-free"
+    },
+    {
+     "tSec": 3.92,
+     "srcSec": 64.98,
+     "what": "Last natural frame before the page scrolls away; clip holds this frame until 4.8 s"
+    }
+   ],
+   "zoomRegions": [
+    {
+     "x": 40,
+     "y": 520,
+     "w": 640,
+     "h": 850,
+     "tStartSec": 1.45,
+     "tEndSec": 4.8,
+     "why": "MATCHING / API TIME 0.69 s row plus the full AUTHENTICATED card: Name shiv, UID 121212121212, Average confidence 89.3%, Fingers passed 4 / 2 required, Per-finger threshold 78.0%, finger results"
+    },
+    {
+     "x": 40,
+     "y": 1090,
+     "w": 640,
+     "h": 230,
+     "tStartSec": 1.45,
+     "tEndSec": 4.8,
+     "why": "Per-finger results list: LEFT INDEX 88.4%, LEFT MIDDLE 90.7%, LEFT RING 83.7%, LEFT LITTLE 94.3%, all PASSED - tiny text"
+    }
+   ],
+   "frozenTail": {
+    "fromSec": 3.928,
+    "toSec": 4.8,
+    "frozenFrom": "src ~64.98 s (frame idx 3479)"
+   }
+  },
+  {
+   "id": "slap_pipeline",
+   "file": "build/clips/slap_pipeline.mp4",
+   "still": "build/clips/slap_pipeline.png",
+   "srcStartSec": 70.457,
+   "srcEndSec": 95.296,
+   "speed": 2.32,
+   "speedSegments": [
+    {
+     "srcFromSec": 70.457,
+     "srcToSec": 72.488,
+     "speed": 2,
+     "outFromSec": 0.0
+    },
+    {
+     "srcFromSec": 72.507,
+     "srcToSec": 78.592,
+     "speed": 2.5,
+     "outFromSec": 1.025
+    },
+    {
+     "srcFromSec": 78.609,
+     "srcToSec": 81.298,
+     "speed": 2.5,
+     "outFromSec": 3.466
+    },
+    {
+     "srcFromSec": 81.312,
+     "srcToSec": 90.698,
+     "speed": 6,
+     "outFromSec": 4.548
+    },
+    {
+     "srcFromSec": 90.716,
+     "srcToSec": 95.296,
+     "speed": 1,
+     "outFromSec": 6.115
+    }
+   ],
+   "durationSec": 10.7,
+   "frames": 321,
+   "fps": 30.0,
+   "width": 720,
+   "height": 1560,
+   "description": "Slap Pipeline visualizer (on-device slap pipeline test bench): hand toggle Right -> Left, camera capture of the left hand, 'Use This Image', processing, then the Summary ('4 fingers', 'on-device') and per-finger cards LEFT INDEX 85% det, LEFT MIDDLE 88% det, LEFT RING 90% det, LEFT LITTLE 90% det, each '100% LIVE' with Detected crop and Preprocessed (binarised ridge) images and '2. Liveness passed (100%)'. Front part sped 2x-6x; the last 4.6 s (all the card footage that exists - the recording ends there) is 1x. 4 shutter-flash frames (77.51-77.56 s) removed.",
+   "keyMoments": [
+    {
+     "tSec": 0.0,
+     "srcSec": 70.45,
+     "what": "Slap Pipeline screen, hand toggle on Right"
+    },
+    {
+     "tSec": 0.33,
+     "srcSec": 71.1,
+     "what": "Left hand selected"
+    },
+    {
+     "tSec": 0.93,
+     "srcSec": 72.3,
+     "what": "Start Camera tapped, camera opens"
+    },
+    {
+     "tSec": 2.99,
+     "srcSec": 77.4,
+     "what": "Yellow boxes + 'Hold - capturing...'"
+    },
+    {
+     "tSec": 3.15,
+     "srcSec": 77.8,
+     "what": "Green boxes + 'Hold still / Capturing and checking liveness...'"
+    },
+    {
+     "tSec": 4.19,
+     "srcSec": 80.4,
+     "what": "Back on pipeline page: captured image + Use This Image"
+    },
+    {
+     "tSec": 4.58,
+     "srcSec": 81.5,
+     "what": "Processing... with grey placeholder cards"
+    },
+    {
+     "tSec": 6.31,
+     "srcSec": 90.9,
+     "what": "Summary '4 fingers / on-device' and LEFT INDEX card (85% det, 100% LIVE) scroll in"
+    },
+    {
+     "tSec": 7.51,
+     "srcSec": 92.1,
+     "what": "LEFT INDEX + LEFT MIDDLE (88% det) cards visible"
+    },
+    {
+     "tSec": 8.71,
+     "srcSec": 93.3,
+     "what": "LEFT RING (90% det) and LEFT LITTLE (90% det) cards visible"
+    },
+    {
+     "tSec": 9.61,
+     "srcSec": 94.2,
+     "what": "Final hold: MIDDLE / RING / LITTLE cards with crops and preprocessed images (recording ends)"
+    }
+   ],
+   "zoomRegions": [
+    {
+     "x": 40,
+     "y": 435,
+     "w": 640,
+     "h": 505,
+     "tStartSec": 7.3,
+     "tEndSec": 7.9,
+     "why": "LEFT INDEX card: 85% det, 100% LIVE chips, detected crop and preprocessed (binarised ridge) image, liveness line"
+    },
+    {
+     "x": 40,
+     "y": 284,
+     "w": 640,
+     "h": 505,
+     "tStartSec": 8.73,
+     "tEndSec": 9.13,
+     "why": "LEFT RING card: 90% det, 100% LIVE, crop + preprocessed image"
+    },
+    {
+     "x": 40,
+     "y": 818,
+     "w": 640,
+     "h": 505,
+     "tStartSec": 8.73,
+     "tEndSec": 9.13,
+     "why": "LEFT LITTLE card: 90% det, 100% LIVE, crop + preprocessed image"
+    },
+    {
+     "x": 40,
+     "y": 687,
+     "w": 640,
+     "h": 505,
+     "tStartSec": 9.3,
+     "tEndSec": 10.7,
+     "why": "LEFT RING card (settled): chips, crop and preprocessed image"
+    },
+    {
+     "x": 40,
+     "y": 150,
+     "w": 640,
+     "h": 520,
+     "tStartSec": 9.3,
+     "tEndSec": 10.7,
+     "why": "LEFT MIDDLE card (title partly clipped under app bar): 88% det, 100% LIVE, crop + preprocessed image"
+    }
+   ],
+   "removedGlitchFramesSrcSec": [
+    77.509,
+    77.558
+   ]
+  },
+  {
+   "id": "slap_home_menu",
+   "file": "build/clips/slap_home_menu.mp4",
+   "still": "build/clips/slap_home_menu.png",
+   "srcStartSec": 68.764,
+   "srcEndSec": 69.738,
+   "speed": 0.98,
+   "speedSegments": [
+    {
+     "srcFromSec": 68.764,
+     "srcToSec": 69.738,
+     "speed": 1.0,
+     "outFromSec": 0.0
+    }
+   ],
+   "durationSec": 3.0,
+   "frames": 90,
+   "fps": 30.0,
+   "width": 720,
+   "height": 1560,
+   "description": "OPTIONAL clip: Slap-mode home scrolling from the hero card down to the ACTIONS tiles - Enroll (Register 4 fingers), Authenticate (Slap 1:N match), Verify (Slap 1:1 identity), Pipeline (Slap visualizer) and QC Pipeline (Quality check & readiness scoring). The source has only ~0.45 s of settled footage before the Pipeline tile is tapped, so the scroll is natural (1x) and the last ~2.0 s is a hold on the settled frame (a faint Android tap-ring on the Authenticate tile is unavoidable in this window).",
+   "keyMoments": [
+    {
+     "tSec": 0.0,
+     "srcSec": 68.76,
+     "what": "Top of home with hero card"
+    },
+    {
+     "tSec": 0.29,
+     "srcSec": 69.05,
+     "what": "Scroll down starts"
+    },
+    {
+     "tSec": 0.96,
+     "srcSec": 69.72,
+     "what": "Scroll settled: ACTIONS tiles + QC Pipeline visible"
+    },
+    {
+     "tSec": 0.99,
+     "srcSec": 69.75,
+     "what": "Clip holds this frame (frozen) until 3.0 s"
+    }
+   ],
+   "zoomRegions": [
+    {
+     "x": 30,
+     "y": 540,
+     "w": 660,
+     "h": 930,
+     "tStartSec": 1.0,
+     "tEndSec": 3.0,
+     "why": "ACTIONS tiles Enroll (Register 4 fingers) / Authenticate (Slap 1:N match) / Verify (Slap 1:1 identity) / Pipeline (Slap visualizer) / QC Pipeline (Quality check & readiness scoring) - subtitles are small"
+    }
+   ],
+   "frozenTail": {
+    "fromSec": 0.99,
+    "toSec": 3.0,
+    "frozenFrom": "src ~69.74 s (frame idx 3748)"
+   }
+  }
+ ],
+ "issues": []
+}

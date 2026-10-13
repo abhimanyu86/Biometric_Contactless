@@ -36,6 +36,7 @@ def extract_template(image_path, verbose=False):
     t0 = time.time()
     try:
         cropped, _conf = app_module.detect_and_crop_image(img)
+        cropped = common.cap_crop(cropped)
     except Exception:
         return None, "no_finger_detected", None
     t1 = time.time()

@@ -1,0 +1,826 @@
+{
+  "source": "C:\\Users\\ABHIMANYU MALIK\\Downloads\\Record_2026-10-06-22-49-27_221aa898fa5b29237199bc159eb7fefc.mp4",
+  "sourceDurationSec": 90.62,
+  "sourceSize": "720x1560",
+  "flow": "single-finger",
+  "audioDropped": true,
+  "outputFormat": "H.264 libx264 crf16 preset medium yuv420p, 30 fps CFR, no audio, 720x1560, +faststart",
+  "notes": "'speed' per clip is the effective average (source seconds / output seconds, excluding any freeze); exact per-section speeds are in speedSegments. Zoom rectangles are in SOURCE pixel space (720x1560) and every tStart/tEnd is output-clip time. Status bar shows 10:49-10:50 in the footage.",
+  "clips": [
+    {
+      "id": "single_home",
+      "file": "build/clips/single_home.mp4",
+      "still": "build/clips/single_home.png",
+      "srcStartSec": 0.0,
+      "srcEndSec": 3.35,
+      "speed": 0.99,
+      "speedSegments": [
+        {
+          "srcStartSec": 0.0,
+          "srcEndSec": 3.35,
+          "speed": 1
+        }
+      ],
+      "durationSec": 3.367,
+      "fps": 30,
+      "width": 720,
+      "height": 1560,
+      "description": "App home screen, Single mode selected, title 'Contactless Fingerprint Auth' hero card with tech chips (YOLO, U2Net, ZeroDCE, MinutiaeNet, MCC) and AI Models / 1:N Auth / 1:1 Verify stats. The hero is static for about 1.7 s, then the page scrolls down to the Actions grid (Enroll, Authenticate, Verify, Pipeline, QC Pipeline) and settles. Ends on a settled home screen just before the tap into Enroll. Not a fully static 3 s hold: the first 1.7 s is static, the rest is the scroll to Actions.",
+      "keyMoments": [
+        {
+          "tSec": 0.0,
+          "what": "Home hero card, Single mode selected, static"
+        },
+        {
+          "tSec": 1.8,
+          "what": "Page scrolls down to reveal ACTIONS grid"
+        },
+        {
+          "tSec": 2.5,
+          "what": "Actions grid settled: Enroll / Authenticate / Verify / Pipeline tiles"
+        },
+        {
+          "tSec": 3.3,
+          "what": "Last frame, settled, just before the tap into Enroll"
+        }
+      ],
+      "zoomRegions": [
+        {
+          "x": 40,
+          "y": 200,
+          "w": 640,
+          "h": 790,
+          "tStartSec": 0.0,
+          "tEndSec": 1.5,
+          "why": "Hero card: product title 'Contactless Fingerprint Auth', tagline, and the tiny tech chips (YOLO, U2Net, ZeroDCE, MinutiaeNet, MCC), plus the Single/Slap mode toggle; too small at 55% scale"
+        },
+        {
+          "x": 40,
+          "y": 680,
+          "w": 640,
+          "h": 650,
+          "tStartSec": 2.3,
+          "tEndSec": 3.3,
+          "why": "Actions grid after the scroll settles: Enroll / Authenticate / Verify / Pipeline tiles with their small sub-labels"
+        }
+      ]
+    },
+    {
+      "id": "single_enroll_form",
+      "file": "build/clips/single_enroll_form.mp4",
+      "still": "build/clips/single_enroll_form.png",
+      "srcStartSec": 3.85,
+      "srcEndSec": 17.05,
+      "speed": 2.51,
+      "speedSegments": [
+        {
+          "srcStartSec": 3.85,
+          "srcEndSec": 15.0,
+          "speed": 3.5
+        },
+        {
+          "srcStartSec": 15.0,
+          "srcEndSec": 17.05,
+          "speed": 1
+        }
+      ],
+      "durationSec": 5.267,
+      "fps": 30,
+      "width": 720,
+      "height": 1560,
+      "description": "Enroll User form from first paint (empty fields) to fully filled: Full Name 'shiv' typed, Aadhaar UID '121212121212' typed (keyboard visible, 3.5x), then the Region/State dropdown is opened (state list at 1x) and 'Gujarat' selected. The last ~0.6 s is the filled form with Gujarat selected.",
+      "keyMoments": [
+        {
+          "tSec": 0.0,
+          "what": "Enroll User screen, empty Full Name / Aadhaar UID / Region fields"
+        },
+        {
+          "tSec": 0.35,
+          "what": "Keyboard opens, name typing starts"
+        },
+        {
+          "tSec": 0.95,
+          "what": "Name 'shiv' entered, focus moves to Aadhaar UID"
+        },
+        {
+          "tSec": 3.15,
+          "what": "UID fully typed: 121212121212; speed returns to 1x"
+        },
+        {
+          "tSec": 3.3,
+          "what": "Region/State dropdown opens"
+        },
+        {
+          "tSec": 3.5,
+          "what": "State list visible (Andhra Pradesh ... Madhya Pradesh)"
+        },
+        {
+          "tSec": 4.6,
+          "what": "Gujarat selected, dropdown closed"
+        },
+        {
+          "tSec": 5.27,
+          "what": "Form complete: shiv / 121212121212 / Gujarat; camera panel below is idle"
+        }
+      ],
+      "zoomRegions": [
+        {
+          "x": 30,
+          "y": 300,
+          "w": 660,
+          "h": 400,
+          "tStartSec": 0.1,
+          "tEndSec": 3.1,
+          "why": "Form fields (Full Name, Aadhaar UID, Region/State) while the name and UID are typed; field text is small"
+        },
+        {
+          "x": 30,
+          "y": 300,
+          "w": 660,
+          "h": 400,
+          "tStartSec": 4.65,
+          "tEndSec": 5.26,
+          "why": "All three fields filled: 'shiv', '121212121212', 'Gujarat' - the completed form"
+        }
+      ]
+    },
+    {
+      "id": "single_enroll_capture",
+      "file": "build/clips/single_enroll_capture.mp4",
+      "still": "build/clips/single_enroll_capture.png",
+      "srcStartSec": 18.8,
+      "srcEndSec": 28.75,
+      "speed": 1.0,
+      "speedSegments": [
+        {
+          "srcStartSec": 18.8,
+          "srcEndSec": 28.75,
+          "speed": 1
+        }
+      ],
+      "durationSec": 9.967,
+      "fps": 30,
+      "width": 720,
+      "height": 1560,
+      "description": "Camera screen for enrollment at 1x: opens with 'Place your fingertip inside' and a fingerprint guide oval, a finger enters the frame and is centred, caption changes to 'Hold your finger comfortably', the oval turns green and the shutter fires (frame darkens), the app returns to the form with the captured still and 'Checking capture...' / Processing button. NOTE: the 'Image captured' label and 'Use This Image' button only appear about 2 s later in the footage, so they are in single_enroll_process, not here.",
+      "keyMoments": [
+        {
+          "tSec": 0.0,
+          "what": "Camera opens: Auto/Manual toggle, fingerprint guide oval, caption 'Place your fingertip inside'"
+        },
+        {
+          "tSec": 1.2,
+          "what": "Finger enters the frame, blurred / out of focus"
+        },
+        {
+          "tSec": 3.2,
+          "what": "Finger centred in the oval, oval outline turns orange"
+        },
+        {
+          "tSec": 6.2,
+          "what": "Caption changes to 'Hold your finger comfortably'"
+        },
+        {
+          "tSec": 8.2,
+          "what": "Oval turns green: quality pass, auto-capture about to fire"
+        },
+        {
+          "tSec": 8.45,
+          "what": "Shutter flash: frame darkens"
+        },
+        {
+          "tSec": 8.95,
+          "what": "Camera closes, back on form with captured preview"
+        },
+        {
+          "tSec": 9.9,
+          "what": "'Checking capture...' preview with Processing... button, processing starts"
+        }
+      ],
+      "zoomRegions": [
+        {
+          "x": 30,
+          "y": 1250,
+          "w": 660,
+          "h": 190,
+          "tStartSec": 0.0,
+          "tEndSec": 8.75,
+          "why": "Camera guidance caption ('Place your fingertip inside' -> 'Hold your finger comfortably'); small at 55% scale"
+        }
+      ]
+    },
+    {
+      "id": "single_enroll_process",
+      "file": "build/clips/single_enroll_process.mp4",
+      "still": "build/clips/single_enroll_process.png",
+      "srcStartSec": 28.75,
+      "srcEndSec": 36.8,
+      "speed": 1.6,
+      "speedSegments": [
+        {
+          "srcStartSec": 28.75,
+          "srcEndSec": 31.0,
+          "speed": 2
+        },
+        {
+          "srcStartSec": 31.0,
+          "srcEndSec": 33.2,
+          "speed": 3
+        },
+        {
+          "srcStartSec": 33.2,
+          "srcEndSec": 34.5,
+          "speed": 1.5
+        },
+        {
+          "srcStartSec": 34.5,
+          "srcEndSec": 36.8,
+          "speed": 1
+        }
+      ],
+      "durationSec": 5.033,
+      "fps": 30,
+      "width": 720,
+      "height": 1560,
+      "description": "From 'Checking capture...' with the Processing-progress card (timer 9.x s, checklist ticking) to the 'Enrolled successfully!' card. 2x, then 3x, then 1.5x through the waiting, final 2.3 s at 1x. The processing timer reads 10.76 s from out-time ~1.2 s to the end. Order of events: processing -> 'Image captured' + 'Use This Image' -> green 'Fingerprint captured' snackbar and Enroll User tap -> spinner -> 'Enrolled successfully!' card -> auto scroll.",
+      "keyMoments": [
+        {
+          "tSec": 0.0,
+          "what": "Processing... button, 'Checking capture...', timer ~9.3 s counting up (2x)"
+        },
+        {
+          "tSec": 1.2,
+          "what": "Timer reaches 10.76 s, all 6 checklist items ticked, 'Image captured' + 'Use This Image' (3x section)"
+        },
+        {
+          "tSec": 1.9,
+          "what": "Green 'Fingerprint captured' snackbar, Enroll User button tapped"
+        },
+        {
+          "tSec": 2.3,
+          "what": "Enroll User button shows spinner (1.5x section)"
+        },
+        {
+          "tSec": 2.7,
+          "what": "'Enrolled successfully!' card appears (Embedding 512 dimensions, Liveness Live, Detection 80.1%), speed 1x from here"
+        },
+        {
+          "tSec": 3.55,
+          "what": "Page auto-scrolls so the card moves up the screen"
+        },
+        {
+          "tSec": 4.4,
+          "what": "Scroll settled: processing card with timer 10.76 s above, success card below, Enroll User button"
+        },
+        {
+          "tSec": 5.03,
+          "what": "End: settled success state"
+        }
+      ],
+      "zoomRegions": [
+        {
+          "x": 40,
+          "y": 1040,
+          "w": 640,
+          "h": 430,
+          "tStartSec": 0.5,
+          "tEndSec": 0.95,
+          "why": "Processing-progress card with the running timer (9.x s) and first checklist items"
+        },
+        {
+          "x": 40,
+          "y": 670,
+          "w": 640,
+          "h": 555,
+          "tStartSec": 1.2,
+          "tEndSec": 2.25,
+          "why": "Completed 6-step processing checklist with final timer value 10.76 s"
+        },
+        {
+          "x": 40,
+          "y": 1085,
+          "w": 640,
+          "h": 275,
+          "tStartSec": 2.75,
+          "tEndSec": 3.55,
+          "why": "'Enrolled successfully!' card as it first appears (Embedding / Liveness / Detection)"
+        },
+        {
+          "x": 40,
+          "y": 330,
+          "w": 640,
+          "h": 575,
+          "tStartSec": 3.65,
+          "tEndSec": 5.0,
+          "why": "Processing checklist + timer 10.76 s after the page settles"
+        },
+        {
+          "x": 40,
+          "y": 930,
+          "w": 640,
+          "h": 295,
+          "tStartSec": 3.65,
+          "tEndSec": 5.0,
+          "why": "'Enrolled successfully!' card: Embedding 512 dimensions, Liveness: Live, Detection 80.1%"
+        }
+      ]
+    },
+    {
+      "id": "single_enroll_result",
+      "file": "build/clips/single_enroll_result.mp4",
+      "still": "build/clips/single_enroll_result.png",
+      "srcStartSec": 34.6,
+      "srcEndSec": 37.0,
+      "speed": 1.0,
+      "speedSegments": [
+        {
+          "srcStartSec": 34.6,
+          "srcEndSec": 37.0,
+          "speed": 1
+        },
+        {
+          "note": "freeze of the last frame appended",
+          "freezeSec": 1.1
+        }
+      ],
+      "durationSec": 3.5,
+      "fps": 30,
+      "width": 720,
+      "height": 1560,
+      "description": "Hold of the 'Enrolled successfully!' card (Embedding: 512 dimensions, Liveness: Live, Detection: 80.1%) fully on screen. The card is fully visible for the whole clip: low position for the first 0.7 s, then a short auto-scroll, settled with margin from ~1.4 s. The last 1.1 s (2.4-3.5 s) is a freeze of the final frame (the source was static there) to give a ~3.5 s hold. Overlaps the final 2 s of single_enroll_process by design.",
+      "keyMoments": [
+        {
+          "tSec": 0.0,
+          "what": "Success card fully visible, lower on screen, snackbar gone"
+        },
+        {
+          "tSec": 0.7,
+          "what": "Short auto-scroll starts"
+        },
+        {
+          "tSec": 1.4,
+          "what": "Scroll settled: processing card (10.76 s) above, success card centred, Enroll User below"
+        },
+        {
+          "tSec": 2.4,
+          "what": "Start of 1.1 s freeze of the final live frame"
+        },
+        {
+          "tSec": 3.5,
+          "what": "End of hold"
+        }
+      ],
+      "zoomRegions": [
+        {
+          "x": 40,
+          "y": 1085,
+          "w": 640,
+          "h": 275,
+          "tStartSec": 0.0,
+          "tEndSec": 0.6,
+          "why": "'Enrolled successfully!' card before the final scroll (lower position)"
+        },
+        {
+          "x": 40,
+          "y": 930,
+          "w": 640,
+          "h": 295,
+          "tStartSec": 0.85,
+          "tEndSec": 3.5,
+          "why": "'Enrolled successfully!' card settled: Embedding 512 dimensions, Liveness: Live, Detection 80.1% (last 1.1 s is a freeze of the final frame)"
+        },
+        {
+          "x": 40,
+          "y": 345,
+          "w": 640,
+          "h": 560,
+          "tStartSec": 1.4,
+          "tEndSec": 3.5,
+          "why": "Processing-progress card with total time 10.76 s and the six completed checks"
+        }
+      ]
+    },
+    {
+      "id": "single_auth_open",
+      "file": "build/clips/single_auth_open.mp4",
+      "still": "build/clips/single_auth_open.png",
+      "srcStartSec": 39.78,
+      "srcEndSec": 46.12,
+      "speed": 1.73,
+      "speedSegments": [
+        {
+          "srcStartSec": 39.78,
+          "srcEndSec": 42.85,
+          "speed": 1
+        },
+        {
+          "srcStartSec": 42.85,
+          "srcEndSec": 46.12,
+          "speed": 5
+        }
+      ],
+      "durationSec": 3.667,
+      "fps": 30,
+      "width": 720,
+      "height": 1560,
+      "description": "Home screen (just after enrollment) -> Actions grid -> tap Authenticate -> Authenticate screen ('Matches against all enrolled users in the batch', Region/State, 'Scan the same index finger and hand used during enrollment'). Region dropdown opened at 1x (state list), Gujarat selected, then the dead time of scrolling down and tapping Start Camera is at 5x; ends on 'Starting camera...'.",
+      "keyMoments": [
+        {
+          "tSec": 0.0,
+          "what": "Home screen fades in, Single mode"
+        },
+        {
+          "tSec": 0.3,
+          "what": "Actions grid on screen, Authenticate tile tapped"
+        },
+        {
+          "tSec": 1.2,
+          "what": "Authenticate screen opens: batch-match info banner, Region/State select, enrollment note"
+        },
+        {
+          "tSec": 1.95,
+          "what": "Region/State list opens"
+        },
+        {
+          "tSec": 2.97,
+          "what": "Gujarat selected"
+        },
+        {
+          "tSec": 3.07,
+          "what": "5x section: scroll down to camera panel and tap Start Camera"
+        },
+        {
+          "tSec": 3.67,
+          "what": "'Starting camera...' on the camera panel"
+        }
+      ],
+      "zoomRegions": [
+        {
+          "x": 40,
+          "y": 200,
+          "w": 640,
+          "h": 540,
+          "tStartSec": 1.2,
+          "tEndSec": 1.85,
+          "why": "Authenticate screen: 'Matches against all enrolled users in the batch' info, Region/State select, and 'Scan the same index finger...' note"
+        }
+      ]
+    },
+    {
+      "id": "single_auth_capture",
+      "file": "build/clips/single_auth_capture.mp4",
+      "still": "build/clips/single_auth_capture.png",
+      "srcStartSec": 46.55,
+      "srcEndSec": 54.72,
+      "speed": 1.0,
+      "speedSegments": [
+        {
+          "srcStartSec": 46.55,
+          "srcEndSec": 54.72,
+          "speed": 1
+        }
+      ],
+      "durationSec": 8.167,
+      "fps": 30,
+      "width": 720,
+      "height": 1560,
+      "description": "Authentication camera at 1x: 'Place your fingertip inside', finger enters and is centred, caption 'Hold your finger comfortably', oval turns green and the shutter fires. The last frame is the green/darkened shutter moment, the next clip starts on the post-capture screen.",
+      "keyMoments": [
+        {
+          "tSec": 0.0,
+          "what": "Camera open, guide oval, 'Place your fingertip inside'"
+        },
+        {
+          "tSec": 0.25,
+          "what": "Finger enters frame (blurred)"
+        },
+        {
+          "tSec": 2.45,
+          "what": "Finger centred, oval turns orange"
+        },
+        {
+          "tSec": 3.95,
+          "what": "Caption 'Hold your finger comfortably'"
+        },
+        {
+          "tSec": 7.7,
+          "what": "Oval turns green, frame darkens: auto-capture fires"
+        },
+        {
+          "tSec": 8.17,
+          "what": "Last frame (shutter)"
+        }
+      ],
+      "zoomRegions": [
+        {
+          "x": 30,
+          "y": 1250,
+          "w": 660,
+          "h": 190,
+          "tStartSec": 0.0,
+          "tEndSec": 8.1,
+          "why": "Camera guidance caption ('Place your fingertip inside' -> 'Hold your finger comfortably'); small at 55% scale"
+        }
+      ]
+    },
+    {
+      "id": "single_auth_process",
+      "file": "build/clips/single_auth_process.mp4",
+      "still": "build/clips/single_auth_process.png",
+      "srcStartSec": 54.75,
+      "srcEndSec": 59.27,
+      "speed": 1.15,
+      "speedSegments": [
+        {
+          "srcStartSec": 54.75,
+          "srcEndSec": 56.5,
+          "speed": 1.5
+        },
+        {
+          "srcStartSec": 56.5,
+          "srcEndSec": 58.4,
+          "speed": 1
+        },
+        {
+          "srcStartSec": 58.4,
+          "srcEndSec": 59.27,
+          "speed": 1
+        }
+      ],
+      "durationSec": 3.933,
+      "fps": 30,
+      "width": 720,
+      "height": 1560,
+      "description": "Authenticate screen after capture: empty checklist, 'Checking capture...' preview, processing timer climbing 9.6 -> 10.65 s with the six checklist items ticking (1.5x then 1x), 'Image captured' + 'Use This Image', then the MATCHING / API TIME counter ticking up (0.3-0.4 s) and skeleton placeholders for the result card. Ends just before the AUTHENTICATED card appears.",
+      "keyMoments": [
+        {
+          "tSec": 0.0,
+          "what": "Authenticate page with empty (grey) processing checklist"
+        },
+        {
+          "tSec": 0.3,
+          "what": "Captured preview 'Checking capture...', Processing... button"
+        },
+        {
+          "tSec": 1.2,
+          "what": "Timer ~9.8 s, checklist ticking"
+        },
+        {
+          "tSec": 2.1,
+          "what": "Timer ~10.4 s, 5 of 6 steps ticked"
+        },
+        {
+          "tSec": 3.07,
+          "what": "Timer 10.65 s, all ticked, 'Image captured' + 'Use This Image'"
+        },
+        {
+          "tSec": 3.5,
+          "what": "MATCHING / API TIME counter appears (0.3 s and rising)"
+        },
+        {
+          "tSec": 3.9,
+          "what": "Skeleton placeholders where the result card will be"
+        }
+      ],
+      "zoomRegions": [
+        {
+          "x": 40,
+          "y": 895,
+          "w": 640,
+          "h": 555,
+          "tStartSec": 2.0,
+          "tEndSec": 3.8,
+          "why": "Processing-progress card: timer rising 10.09 -> 10.65 s with all six checklist steps"
+        }
+      ]
+    },
+    {
+      "id": "single_auth_result",
+      "file": "build/clips/single_auth_result.mp4",
+      "still": "build/clips/single_auth_result.png",
+      "srcStartSec": 59.3,
+      "srcEndSec": 63.7,
+      "speed": 1.0,
+      "speedSegments": [
+        {
+          "srcStartSec": 59.3,
+          "srcEndSec": 63.7,
+          "speed": 1
+        }
+      ],
+      "durationSec": 4.4,
+      "fps": 30,
+      "width": 720,
+      "height": 1560,
+      "description": "AUTHENTICATED card, 1x, whole clip. Fields visible the whole time: header AUTHENTICATED, Name: shiv, UID: 121212121212, Confidence: 97.3%, Threshold: 94.0%, plus the 'MATCHING / API TIME 0.45 s' row directly above the card. Best framing (full card with margin, API time row, 10.65 s processing card above) is 1.2-2.6 s; the page auto-scrolls up at ~0.8 s and back down at ~2.7 s, and in the lower position the card's bottom edge touches the nav bar (still fully readable).",
+      "keyMoments": [
+        {
+          "tSec": 0.0,
+          "what": "AUTHENTICATED card appears (lower on screen) with MATCHING / API TIME 0.45 s"
+        },
+        {
+          "tSec": 0.8,
+          "what": "Page scrolls up"
+        },
+        {
+          "tSec": 1.2,
+          "what": "Best framing begins: Name shiv, UID 121212121212, Confidence 97.3%, Threshold 94.0%, API time 0.45 s"
+        },
+        {
+          "tSec": 2.6,
+          "what": "Best framing ends"
+        },
+        {
+          "tSec": 2.7,
+          "what": "Page scrolls back down"
+        },
+        {
+          "tSec": 3.05,
+          "what": "Settled lower position, card bottom flush with nav bar"
+        },
+        {
+          "tSec": 4.4,
+          "what": "End"
+        }
+      ],
+      "zoomRegions": [
+        {
+          "x": 40,
+          "y": 925,
+          "w": 640,
+          "h": 545,
+          "tStartSec": 0.0,
+          "tEndSec": 0.75,
+          "why": "MATCHING / API TIME 0.45 s and the AUTHENTICATED card (Name shiv, UID 121212121212, Confidence 97.3%, Threshold 94.0%) - low scroll position"
+        },
+        {
+          "x": 40,
+          "y": 810,
+          "w": 640,
+          "h": 560,
+          "tStartSec": 1.2,
+          "tEndSec": 2.6,
+          "why": "Best-framed state: MATCHING / API TIME 0.45 s plus the full AUTHENTICATED card with margin all round"
+        },
+        {
+          "x": 40,
+          "y": 245,
+          "w": 640,
+          "h": 545,
+          "tStartSec": 1.2,
+          "tEndSec": 2.6,
+          "why": "Processing-progress card: 10.65 s total and six completed steps"
+        },
+        {
+          "x": 40,
+          "y": 960,
+          "w": 640,
+          "h": 510,
+          "tStartSec": 3.05,
+          "tEndSec": 4.4,
+          "why": "MATCHING / API TIME 0.45 s and the AUTHENTICATED card, low scroll position again (card bottom touches the screen edge)"
+        }
+      ]
+    },
+    {
+      "id": "single_pipeline",
+      "file": "build/clips/single_pipeline.mp4",
+      "still": "build/clips/single_pipeline.png",
+      "srcStartSec": 67.0,
+      "srcEndSec": 89.5,
+      "speed": 1.75,
+      "speedSegments": [
+        {
+          "srcStartSec": 67.0,
+          "srcEndSec": 70.0,
+          "speed": 5
+        },
+        {
+          "srcStartSec": 70.0,
+          "srcEndSec": 74.0,
+          "speed": 4
+        },
+        {
+          "srcStartSec": 74.0,
+          "srcEndSec": 77.02,
+          "speed": 1
+        },
+        {
+          "srcStartSec": 77.25,
+          "srcEndSec": 82.45,
+          "speed": 5
+        },
+        {
+          "srcStartSec": 82.45,
+          "srcEndSec": 83.2,
+          "speed": 1
+        },
+        {
+          "srcStartSec": 83.2,
+          "srcEndSec": 89.5,
+          "speed": 1
+        }
+      ],
+      "durationSec": 12.733,
+      "fps": 30,
+      "width": 720,
+      "height": 1560,
+      "description": "Home -> Pipeline tile -> Pipeline Visualizer -> Start Camera (5x/4x), then finger placement with guidance captions at 1x (source 74.0-77.0 s), capture, stage processing spinners (5x), and the stage cards at 1x: Quality Gate PASSED (Blur 158.7, Brightness 181.1, Glare None), Live Finger Detected 84.1%, Original (raw image with keyboard background), YOLO Crop (large finger crop), Preprocessed (black-and-white binarised ridge image), Minutiae (shows 'Not available' with a note that minutiae extraction and template generation run on the backend, not in this on-device visualiser). The user scrolls down through the stages, then back up. Runs 12.7 s (target 10-12 s, ~6% over).",
+      "keyMoments": [
+        {
+          "tSec": 0.0,
+          "what": "Home screen mid-scroll (5x)"
+        },
+        {
+          "tSec": 0.5,
+          "what": "Pipeline Visualizer opens, 'Starting camera...'"
+        },
+        {
+          "tSec": 0.7,
+          "what": "Camera opens, finger being placed (4x until 1.6 s)"
+        },
+        {
+          "tSec": 2.6,
+          "what": "Caption 'Hold your finger comfortably' (1x from 1.6 s)"
+        },
+        {
+          "tSec": 4.45,
+          "what": "Oval turns green, capture fires"
+        },
+        {
+          "tSec": 4.7,
+          "what": "Captured image on the Pipeline page, 4 stages 'Processing...' (5x)"
+        },
+        {
+          "tSec": 5.75,
+          "what": "Quality Gate PASSED + Live Finger Detected 84.1% cards settled (1x from 5.66 s)"
+        },
+        {
+          "tSec": 6.4,
+          "what": "Scroll down to PIPELINE STEPS"
+        },
+        {
+          "tSec": 7.1,
+          "what": "Stage 1 Original: raw camera image with keyboard background"
+        },
+        {
+          "tSec": 8.0,
+          "what": "Stage 2 YOLO Crop: large finger crop"
+        },
+        {
+          "tSec": 8.8,
+          "what": "Stage 3 Preprocessed: binarised ridge image"
+        },
+        {
+          "tSec": 9.05,
+          "what": "Stage 4 Minutiae: 'Not available' + backend note (settled until ~9.6 s)"
+        },
+        {
+          "tSec": 10.0,
+          "what": "Scrolling back up, full Preprocessed ridge image on screen"
+        },
+        {
+          "tSec": 11.0,
+          "what": "YOLO Crop on screen"
+        },
+        {
+          "tSec": 12.0,
+          "what": "Original card on screen"
+        },
+        {
+          "tSec": 12.73,
+          "what": "End on Original raw image"
+        }
+      ],
+      "zoomRegions": [
+        {
+          "x": 30,
+          "y": 1250,
+          "w": 660,
+          "h": 190,
+          "tStartSec": 0.7,
+          "tEndSec": 4.5,
+          "why": "Camera guidance caption ('Place your fingertip inside' -> 'Hold your finger comfortably')"
+        },
+        {
+          "x": 40,
+          "y": 925,
+          "w": 640,
+          "h": 490,
+          "tStartSec": 5.75,
+          "tEndSec": 6.25,
+          "why": "Quality Gate PASSED (Blur 158.7, Brightness 181.1, Glare None) and Live Finger Detected 84.1% cards; small text"
+        },
+        {
+          "x": 40,
+          "y": 700,
+          "w": 640,
+          "h": 670,
+          "tStartSec": 9.05,
+          "tEndSec": 9.55,
+          "why": "Minutiae stage card showing 'Not available' and the note that minutiae extraction runs on the backend, not on-device"
+        }
+      ]
+    }
+  ]
+}
