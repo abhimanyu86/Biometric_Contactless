@@ -30,6 +30,7 @@ def main():
         name = os.path.basename(path)
         img = common.load_image(path)
         cropped, _conf = app_module.detect_and_crop_image(img)
+        cropped = common.cap_crop(cropped)
         mask = app_module.get_segmentation_mask(cropped)
         preprocessed = app_module.preprocess_fingerprint(cropped, mask=mask)
         minutiae = app_module.detect_minutiae(preprocessed)

@@ -95,3 +95,5 @@ minutiae-labelling-and-training/fingernet/Model.model
 minutiae-labelling-and-training/fingernet/output/
 # Upstream's prebuilt Linux mindtct binary: unverified, and unused on Windows.
 minutiae-labelling-and-training/py-minutiae-viewer/pyminutiaeviewer/mindtct/mindtct
+# Ground-truth labelling workspace: real captures, and minutiae are biometric data too.
+minutiae-labelling-and-training/ground_truth/

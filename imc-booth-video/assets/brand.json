@@ -1,0 +1,126 @@
+{
+  "source": "Sampled from real pixels of the YellowSense poster (1.webp, 970x2000); median of matching pixels in the named region.",
+  "measured": {
+    "black_headline": {
+      "hex": "#010101",
+      "where": "TRUST headline",
+      "note": "effectively pure black; headings inside feature blocks measure #0F0F0E"
+    },
+    "orange_headline": {
+      "hex": "#BB7003",
+      "where": "INSTANTLY. headline",
+      "range_p10_p90": [
+        "#AF6800",
+        "#C17619"
+      ],
+      "note": "an amber/ochre orange, darker and browner than a typical safety orange"
+    },
+    "deep_orange_logo": {
+      "hex": "#C16E12",
+      "where": "ring mark and YELLOWSENSE wordmark (wordmark measures #C36D0F)",
+      "note": "use #C26E10 as the single logo orange"
+    },
+    "mustard_banner": {
+      "hex": "#B86C01",
+      "where": "bottom Vision/Mission/Impact banner",
+      "note": "deep mustard/amber; same hue family as the headline orange, slightly darker"
+    },
+    "cream_background": {
+      "hex": "#FEFEFC",
+      "where": "poster page background (top, left strip, feature card, QR card)",
+      "note": "Measured background is a warm near-white, not a visible cream. For a true cream feel use the suggested #FBF7F0."
+    },
+    "accent_red_orange": {
+      "hex": "#C15627",
+      "where": "feature-card headings (SECURE AUTHENTICATION etc.), EXPLORE MORE (#C15525), AI Era (#CA5E1D)"
+    },
+    "grey_logo_sub": {
+      "hex": "#363636",
+      "where": "TECHNOLOGIES PVT. LTD. line"
+    },
+    "grey_body": {
+      "hex": "#474746",
+      "where": "body copy under feature headings"
+    },
+    "banner_text_white": {
+      "hex": "#FEFBF9",
+      "where": "VISION / MISSION / IMPACT text and icons on the banner"
+    },
+    "glow_orange": {
+      "hex": "#EFAA70",
+      "where": "fingertip scan glow in hero photo",
+      "alt": "phone-UI fingerprint orange #D36E46"
+    },
+    "phone_ui_yellow": {
+      "hex": "#F6E480",
+      "where": "progress bar on the phone-screen UI",
+      "alt": "IDENTITY VERIFIED text #CFCC6B"
+    },
+    "phone_screen_bg": {
+      "hex": "#171A18",
+      "where": "phone display background"
+    }
+  },
+  "logo_asset_colours": {
+    "logo_yellowsense.png": {
+      "mark": "#C36E11",
+      "wordmark": "#C46E0E",
+      "technologies_line": "#373737",
+      "use_on": "light backgrounds only (the grey sub-line disappears on dark)"
+    },
+    "logo_yellowsense_onDark.png": {
+      "mark": "#F79320",
+      "wordmark": "#F7921E",
+      "technologies_line": "#F9F9F7",
+      "use_on": "dark backgrounds (#1A1A1A to #222 tested)"
+    }
+  },
+  "suggested": {
+    "light": {
+      "bg": "#FBF7F0",
+      "surface": "#FFFFFF",
+      "ink": "#0A0A0A",
+      "inkMuted": "#474746",
+      "brandOrange": "#C26E10",
+      "headlineOrange": "#BB7003",
+      "accent": "#C15627",
+      "orangeTextSmall": "#A85F00",
+      "banner": "#B86C01",
+      "onBanner": "#FFFFFF",
+      "rule": "#E6D5BE",
+      "glow": "#EFAA70",
+      "contrast_notes": {
+        "ink_on_bg": 19.0,
+        "inkMuted_on_bg": 8.7,
+        "brandOrange_on_bg": 3.55,
+        "accent_on_bg": 4.25,
+        "orangeTextSmall_on_bg": 4.57,
+        "white_on_banner": 4.05,
+        "guidance": "brandOrange and headlineOrange are about 3.6:1 on cream: fine for large display type (headlines, big numbers) only. Use orangeTextSmall or accent for body-size orange text. White on the banner is 4.05:1: bold or large text only."
+      }
+    },
+    "dark": {
+      "bg": "#1A1A1A",
+      "surface": "#242321",
+      "ink": "#F5F1EA",
+      "inkMuted": "#B8B2A8",
+      "brandOrange": "#F28C28",
+      "brightOrange": "#FF9A3C",
+      "accent": "#E8743B",
+      "highlight": "#F4B13A",
+      "banner": "#B86C01",
+      "onBanner": "#FFFFFF",
+      "rule": "#3A3835",
+      "glow": "#EFAA70",
+      "contrast_notes": {
+        "ink_on_bg": 15.5,
+        "brandOrange_on_bg": 7.09,
+        "brightOrange_on_bg": 8.24,
+        "accent_on_bg": 5.8,
+        "highlight_on_bg": 9.28,
+        "guidance": "logo_yellowsense_onDark.png orange (#F79320) matches brandOrange here. Do not place logo_yellowsense.png (grey sub-line) on dark."
+      }
+    },
+    "derived_note": "bg #FBF7F0, surfaces, muted inks, rules and all dark-theme values are DERIVED suggestions, not sampled. Everything under 'measured' is sampled."
+  }
+}

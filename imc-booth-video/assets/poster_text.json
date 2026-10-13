@@ -1,0 +1,157 @@
+{
+  "company": {
+    "wordmark": "YELLOWSENSE",
+    "sub": "TECHNOLOGIES PVT. LTD."
+  },
+  "contact": {
+    "website": "www.yellowsense.in",
+    "email": "prakhar@yellowsense.in",
+    "phone": "+91 98693 97868",
+    "icons_in_order": [
+      "globe",
+      "envelope",
+      "phone handset"
+    ],
+    "verified": "zoomed 6x; phone digits 98693 97868; email local part 'prakhar'"
+  },
+  "headline": {
+    "line1": "TRUST",
+    "line2": "INSTANTLY.",
+    "colours": {
+      "line1": "black",
+      "line2": "orange"
+    }
+  },
+  "tagline": {
+    "line1": "Contactless Identity",
+    "line2": "Verification for the AI Era",
+    "highlight": "AI Era (orange)"
+  },
+  "explore_more_card": {
+    "label": "EXPLORE MORE",
+    "contains": "QR code (see qr.json)"
+  },
+  "icon_features": [
+    {
+      "heading": [
+        "CONTACTLESS",
+        "BIOMETRICS"
+      ],
+      "caption": [
+        "Verify identity securely",
+        "without any touch."
+      ],
+      "icon": "phone with fingerprint"
+    },
+    {
+      "heading": [
+        "DEEPFAKE",
+        "DETECTION"
+      ],
+      "caption": [
+        "AI-powered protection",
+        "against synthetic threats."
+      ],
+      "icon": "face wireframe"
+    },
+    {
+      "heading": [
+        "FAKE APP",
+        "DETECTION"
+      ],
+      "caption": [
+        "Detect and block",
+        "malicious applications",
+        "in real-time."
+      ],
+      "icon": "phone with skull and crossbones"
+    }
+  ],
+  "feature_grid": [
+    {
+      "heading": [
+        "SECURE",
+        "AUTHENTICATION"
+      ],
+      "caption": [
+        "Built for privacy",
+        "and compliance"
+      ],
+      "icon": "shield with tick",
+      "position": "top-left"
+    },
+    {
+      "heading": [
+        "REAL-TIME",
+        "VERIFICATION"
+      ],
+      "caption": [
+        "Lightning fast",
+        "and seamless"
+      ],
+      "icon": "lightning bolt in circular arrows",
+      "position": "top-right"
+    },
+    {
+      "heading": [
+        "AI-POWERED",
+        "INTELLIGENCE"
+      ],
+      "caption": [
+        "Advanced models for",
+        "smarter decisions"
+      ],
+      "icon": "brain circuit",
+      "position": "bottom-left"
+    },
+    {
+      "heading": [
+        "ENTERPRISE",
+        "READY"
+      ],
+      "caption": [
+        "Scalable, reliable",
+        "and future-ready"
+      ],
+      "icon": "shield with tick",
+      "position": "bottom-right"
+    }
+  ],
+  "banner": [
+    {
+      "label": "VISION",
+      "text": "A world where every identity is verified securely and seamlessly.",
+      "icon": "eye"
+    },
+    {
+      "label": "MISSION",
+      "text": "To build AI-powered identity verification solutions that create trust at every touchpoint.",
+      "icon": "target with arrow"
+    },
+    {
+      "label": "IMPACT",
+      "text": "Enabling safer digital interactions for individuals and enterprises.",
+      "icon": "group of people"
+    }
+  ],
+  "phone_screen_in_hero_photo": [
+    "SCANNING FINGERPRINT",
+    "ANALYZING...",
+    "87%",
+    "IDENTITY VERIFIED"
+  ],
+  "flat_strings_for_voiceover": {
+    "headline": "Trust Instantly.",
+    "tagline": "Contactless Identity Verification for the AI Era",
+    "pillars": [
+      "Contactless Biometrics",
+      "Deepfake Detection",
+      "Fake App Detection",
+      "Secure Authentication",
+      "Real-time Verification",
+      "AI-powered Intelligence",
+      "Enterprise Ready"
+    ]
+  },
+  "notes": "Poster is AI-generated artwork. Text transcribed exactly as rendered (uppercase headings and hyphenation kept). The poster does NOT state any matching-accuracy figure; the 85 percent figure comes from the project brief, not the poster. The 87% on the phone screen is part of the illustrative UI mock-up."
+}

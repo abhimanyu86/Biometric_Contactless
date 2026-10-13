@@ -20,6 +20,16 @@ import cv2
 # fixes this for both phases so the comparison stays apples-to-apples.
 MAX_DIM = 1600
 
+# Even after the above fix, individual YOLO crops can still be pathologically
+# slow through Zero-DCE: some photos crop to a very tall/narrow box (finger
+# fills nearly the full frame height), e.g. one probe cropped to 1236x313 --
+# a similar total pixel count to a normal ~700x480 crop, but took 149.76s
+# through preprocess_fingerprint vs 0.03s for the normal one (almost
+# certainly a oneDNN/XNNPACK convolution-kernel selection issue for that
+# aspect ratio, not a pixel-count problem -- capping to 800px fixed it).
+# Capping the CROP itself (not just the source photo) avoids this.
+CROP_MAX_DIM = 800
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(BASE_DIR)
 BACKEND_DIR = os.path.join(REPO_ROOT, "backend")
@@ -39,6 +49,17 @@ if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
 
+def cap_crop(cropped, max_dim=CROP_MAX_DIM):
+    """Call on the YOLO-cropped image before U2Net/Zero-DCE (with-preprocessing
+    pipeline only) to avoid the pathological-aspect-ratio slowdown above."""
+    h, w = cropped.shape[:2]
+    longest = max(h, w)
+    if longest <= max_dim:
+        return cropped
+    scale = max_dim / longest
+    return cv2.resize(cropped, (round(w * scale), round(h * scale)), interpolation=cv2.INTER_AREA)
+
+
 def load_image(path):
     img = cv2.imread(path)
     if img is None:
@@ -54,13 +75,16 @@ def load_image(path):
 GALLERY_DIR = os.path.join(REPO_ROOT, "image_db")
 
 
-def list_gallery_images():
+def list_gallery_images(include_rahul=True):
     """
-    31-identity enrollment gallery: Person1..Person30 (image_db's other
-    identities, mixed .jpeg/.png/.jpg extensions) plus Rahul -- used as
-    impostor identities against Rahul's 106 test_db probes, since Rahul is
-    the only identity with probe photos in test_db.
-    Returns [(identity_label, path), ...] sorted Person1..Person30, Rahul last.
+    Enrollment gallery: Person1..Person30 (image_db's other identities,
+    mixed .jpeg/.png/.jpg extensions), used as impostor identities against
+    Rahul's 106 test_db probes since Rahul is the only identity with a probe
+    set in test_db. include_rahul=True (default, used by the MinutiaeNet
+    gallery run) appends Rahul so genuine pairs exist alongside impostor
+    ones; include_rahul=False gives a pure impostor-only gallery (30
+    identities, no genuine pairs possible) -- used for the Siamese run.
+    Returns [(identity_label, path), ...] sorted Person1..Person30[, Rahul].
     """
     import glob as glob_mod
 
@@ -69,7 +93,8 @@ def list_gallery_images():
         name = os.path.splitext(os.path.basename(path))[0]
         entries.append((name, path))
     entries.sort(key=lambda e: int("".join(ch for ch in e[0] if ch.isdigit())))
-    entries.append(("Rahul", ENROLL_IMAGE))
+    if include_rahul:
+        entries.append(("Rahul", ENROLL_IMAGE))
     return entries
 
 

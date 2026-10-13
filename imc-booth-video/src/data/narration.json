@@ -1,0 +1,384 @@
+{
+  "voice": "en-IN-NeerjaNeural",
+  "rate": "-12%",
+  "beats": [
+    {
+      "id": "B01",
+      "scene": "hook",
+      "sentences": [
+        {
+          "show": "Imagine verifying identity with just the phone in your hand.",
+          "say": "Imagine verifying identity with just the phone in your hand.",
+          "file": "media/narration/B01_1.mp3",
+          "durationSec": 4.42
+        },
+        {
+          "show": "No scanner. No touch. Just a camera.",
+          "say": "No scanner, no touch, just a camera.",
+          "file": "media/narration/B01_2.mp3",
+          "durationSec": 3.41
+        }
+      ]
+    },
+    {
+      "id": "B02",
+      "scene": "problem",
+      "sentences": [
+        {
+          "show": "Today, fingerprint authentication needs dedicated scanners to buy, deploy and maintain.",
+          "say": "Today, fingerprint authentication needs dedicated scanners to buy, deploy and maintain.",
+          "file": "media/narration/B02_1.mp3",
+          "durationSec": 6.6
+        },
+        {
+          "show": "YellowSense turns the camera of a smartphone into a contactless fingerprint reader.",
+          "say": "Yellow Sense turns the camera of a smartphone into a contactless fingerprint reader.",
+          "file": "media/narration/B02_2.mp3",
+          "durationSec": 5.88
+        },
+        {
+          "show": "One app handles both enrollment and authentication.",
+          "say": "One app handles both enrollment and authentication.",
+          "file": "media/narration/B02_3.mp3",
+          "durationSec": 3.74
+        }
+      ]
+    },
+    {
+      "id": "B03",
+      "scene": "enroll_form",
+      "sentences": [
+        {
+          "show": "Let's start with enrollment.",
+          "say": "Let's start with enrollment.",
+          "file": "media/narration/B03_1.mp3",
+          "durationSec": 2.04
+        },
+        {
+          "show": "The operator enters the person's name and ID number.",
+          "say": "The operator enters the person's name and ID number.",
+          "file": "media/narration/B03_2.mp3",
+          "durationSec": 3.77
+        },
+        {
+          "show": "Then selects the region.",
+          "say": "Then selects the region.",
+          "file": "media/narration/B03_3.mp3",
+          "durationSec": 1.8
+        }
+      ]
+    },
+    {
+      "id": "B04",
+      "scene": "enroll_capture",
+      "sentences": [
+        {
+          "show": "The person holds one index finger in front of the rear camera.",
+          "say": "The person holds one index finger in front of the rear camera.",
+          "file": "media/narration/B04_1.mp3",
+          "durationSec": 4.32
+        },
+        {
+          "show": "Auto-capture takes the shot once the finger is steady and in focus.",
+          "say": "Auto-capture takes the shot once the finger is steady and in focus.",
+          "file": "media/narration/B04_2.mp3",
+          "durationSec": 4.9
+        }
+      ]
+    },
+    {
+      "id": "B05",
+      "scene": "enroll_process",
+      "sentences": [
+        {
+          "show": "The app checks image quality, finds the finger, and runs a liveness check.",
+          "say": "The app checks image quality, finds the finger, and runs a liveness check.",
+          "file": "media/narration/B05_1.mp3",
+          "durationSec": 5.62
+        },
+        {
+          "show": "Including the capture, enrollment takes about ten seconds.",
+          "say": "Including the capture, enrollment takes about ten seconds.",
+          "file": "media/narration/B05_2.mp3",
+          "durationSec": 4.42
+        },
+        {
+          "show": "The result card reports the capture as live.",
+          "say": "The result card reports the capture as live.",
+          "file": "media/narration/B05_3.mp3",
+          "durationSec": 3.29
+        }
+      ]
+    },
+    {
+      "id": "B06",
+      "scene": "auth_open",
+      "sentences": [
+        {
+          "show": "To authenticate, the operator opens the Authenticate screen.",
+          "say": "To authenticate, the operator opens the Authenticate screen.",
+          "file": "media/narration/B06_1.mp3",
+          "durationSec": 4.46
+        },
+        {
+          "show": "The match runs against the users enrolled in the chosen region.",
+          "say": "The match runs against the users enrolled in the chosen region.",
+          "file": "media/narration/B06_2.mp3",
+          "durationSec": 4.39
+        },
+        {
+          "show": "The person scans the same finger again.",
+          "say": "The person scans the same finger again.",
+          "file": "media/narration/B06_3.mp3",
+          "durationSec": 2.83
+        }
+      ]
+    },
+    {
+      "id": "B07",
+      "scene": "auth_result",
+      "sentences": [
+        {
+          "show": "The same processing steps run first.",
+          "say": "The same processing steps run first.",
+          "file": "media/narration/B07_1.mp3",
+          "durationSec": 2.86
+        },
+        {
+          "show": "The match itself takes under a second, and the person is authenticated.",
+          "say": "The match itself takes under a second, and the person is authenticated.",
+          "file": "media/narration/B07_2.mp3",
+          "durationSec": 4.99
+        }
+      ]
+    },
+    {
+      "id": "B08",
+      "scene": "pipeline",
+      "sentences": [
+        {
+          "show": "Under the hood, five stages do the heavy lifting.",
+          "say": "Under the hood, five stages do the heavy lifting.",
+          "file": "media/narration/B08_1.mp3",
+          "durationSec": 3.5
+        },
+        {
+          "show": "YOLO finds the finger.",
+          "say": "YOLO finds the finger.",
+          "file": "media/narration/B08_2.mp3",
+          "durationSec": 1.87
+        },
+        {
+          "show": "A liveness check classifies each capture as live or not.",
+          "say": "A liveness check classifies each capture as live or not.",
+          "file": "media/narration/B08_3.mp3",
+          "durationSec": 4.66
+        },
+        {
+          "show": "U²-Net segments it.",
+          "say": "U squared Net segments it.",
+          "file": "media/narration/B08_4.mp3",
+          "durationSec": 2.16
+        },
+        {
+          "show": "Enhancement brings out the ridges, with Zero-DCE for low light.",
+          "say": "Enhancement brings out the ridges, with Zero D C E for low light.",
+          "file": "media/narration/B08_5.mp3",
+          "durationSec": 5.09
+        },
+        {
+          "show": "And in the cloud, the print becomes a template and is matched.",
+          "say": "And in the cloud, the print becomes a template and is matched.",
+          "file": "media/narration/B08_6.mp3",
+          "durationSec": 4.22
+        }
+      ]
+    },
+    {
+      "id": "B09",
+      "scene": "slap_intro",
+      "sentences": [
+        {
+          "show": "Slap mode captures four fingers in a single shot.",
+          "say": "Slap mode captures four fingers in a single shot.",
+          "file": "media/narration/B09_1.mp3",
+          "durationSec": 4.01
+        },
+        {
+          "show": "The home screen also offers one-to-one verification, a pipeline view, and a quality check tool.",
+          "say": "The home screen also offers one-to-one verification, a pipeline view, and a quality check tool.",
+          "file": "media/narration/B09_2.mp3",
+          "durationSec": 7.15
+        }
+      ]
+    },
+    {
+      "id": "B10",
+      "scene": "slap_form",
+      "sentences": [
+        {
+          "show": "The operator fills in the same details, and chooses which hand to scan.",
+          "say": "The operator fills in the same details, and chooses which hand to scan.",
+          "file": "media/narration/B10_1.mp3",
+          "durationSec": 4.97
+        },
+        {
+          "show": "Here, it is the left hand.",
+          "say": "Here, it is the left hand.",
+          "file": "media/narration/B10_2.mp3",
+          "durationSec": 2.14
+        }
+      ]
+    },
+    {
+      "id": "B11",
+      "scene": "slap_capture",
+      "sentences": [
+        {
+          "show": "The person holds four fingers sideways in front of the rear camera.",
+          "say": "The person holds four fingers sideways in front of the rear camera.",
+          "file": "media/narration/B11_1.mp3",
+          "durationSec": 4.61
+        },
+        {
+          "show": "Detection boxes lock onto each fingertip, and the app checks liveness.",
+          "say": "Detection boxes lock onto each fingertip, and the app checks liveness.",
+          "file": "media/narration/B11_2.mp3",
+          "durationSec": 5.52
+        }
+      ]
+    },
+    {
+      "id": "B12",
+      "scene": "slap_enrolled",
+      "sentences": [
+        {
+          "show": "Every finger is detected, checked for liveness, and processed on its own.",
+          "say": "Every finger is detected, checked for liveness, and processed on its own.",
+          "file": "media/narration/B12_1.mp3",
+          "durationSec": 5.28
+        },
+        {
+          "show": "All four fingers are enrolled.",
+          "say": "All four fingers are enrolled.",
+          "file": "media/narration/B12_2.mp3",
+          "durationSec": 2.21
+        }
+      ]
+    },
+    {
+      "id": "B13",
+      "scene": "slap_auth",
+      "sentences": [
+        {
+          "show": "To authenticate, the person scans the same hand again.",
+          "say": "To authenticate, the person scans the same hand again.",
+          "file": "media/narration/B13_1.mp3",
+          "durationSec": 3.84
+        },
+        {
+          "show": "The same checks run on every finger.",
+          "say": "The same checks run on every finger.",
+          "file": "media/narration/B13_2.mp3",
+          "durationSec": 2.86
+        },
+        {
+          "show": "Authentication needs at least two matching fingers.",
+          "say": "Authentication needs at least two matching fingers.",
+          "file": "media/narration/B13_3.mp3",
+          "durationSec": 3.41
+        },
+        {
+          "show": "Here, all four passed, and the match took under a second.",
+          "say": "Here, all four passed, and the match took under a second.",
+          "file": "media/narration/B13_4.mp3",
+          "durationSec": 4.32
+        }
+      ]
+    },
+    {
+      "id": "B14",
+      "scene": "slap_pipeline",
+      "sentences": [
+        {
+          "show": "The slap pipeline view lets you watch a capture step by step.",
+          "say": "The slap pipeline view lets you watch a capture step by step.",
+          "file": "media/narration/B14_1.mp3",
+          "durationSec": 4.3
+        },
+        {
+          "show": "While it processes, each finger is cropped and checked on its own.",
+          "say": "While it processes, each finger is cropped and checked on its own.",
+          "file": "media/narration/B14_2.mp3",
+          "durationSec": 4.73
+        },
+        {
+          "show": "Then every fingertip appears with its crop, its liveness result, and a processed ridge image.",
+          "say": "Then every fingertip appears with its crop, its liveness result, and a processed ridge image.",
+          "file": "media/narration/B14_3.mp3",
+          "durationSec": 6.84
+        }
+      ]
+    },
+    {
+      "id": "B15",
+      "scene": "accuracy",
+      "sentences": [
+        {
+          "show": "Our target is over 85% matching accuracy.",
+          "say": "Our target is over eighty-five percent matching accuracy.",
+          "file": "media/narration/B15_1.mp3",
+          "durationSec": 4.03
+        },
+        {
+          "show": "That is the acceptance target for this proof of concept.",
+          "say": "That is the acceptance target for this proof of concept.",
+          "file": "media/narration/B15_2.mp3",
+          "durationSec": 3.86
+        }
+      ]
+    },
+    {
+      "id": "B16",
+      "scene": "pillars",
+      "sentences": [
+        {
+          "show": "Our design goals: secure, real-time, AI-powered, enterprise ready.",
+          "say": "Our design goals: secure, real-time, A I-powered, enterprise ready.",
+          "file": "media/narration/B16_1.mp3",
+          "durationSec": 6.26
+        }
+      ]
+    },
+    {
+      "id": "B17",
+      "scene": "closing",
+      "sentences": [
+        {
+          "show": "A world where every identity is verified securely and seamlessly.",
+          "say": "A world where every identity is verified securely and seamlessly.",
+          "file": "media/narration/B17_1.mp3",
+          "durationSec": 5.38
+        },
+        {
+          "show": "YellowSense Technologies. Trust, instantly.",
+          "say": "Yellow Sense Technologies, trust, instantly.",
+          "file": "media/narration/B17_2.mp3",
+          "durationSec": 3.86
+        }
+      ]
+    },
+    {
+      "id": "B18",
+      "scene": "closing",
+      "sentences": [
+        {
+          "show": "Visit us at IMC, Hall 1, Booth TS 14, and try it yourself.",
+          "say": "Visit us at the India Mobile Congress, Hall 1, Booth T S fourteen, and try it yourself.",
+          "file": "media/narration/B18_1.mp3",
+          "durationSec": 7.27
+        }
+      ]
+    }
+  ]
+}
