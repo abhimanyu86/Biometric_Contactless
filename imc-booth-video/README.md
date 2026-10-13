@@ -61,8 +61,8 @@ On screen / in the narration: contactless capture with a phone camera, enrol + a
 match step, and a five-stage pipeline whose last stage is described only as cloud-side "template & match" (the demo build shows
 "Embedding: 512 dimensions", not minutiae).
 
-Deliberately **not** claimed: on-device processing; end-to-end speed (the app's timers read ~8–11 s; all demo footage plays at real time, nothing is sped up); that liveness catches photo / print attacks; any UIDAI certification or endorsement; and the
+Deliberately **not** claimed: on-device processing; end-to-end speed (the app's timers read ~8–11 s; all demo footage plays at real time, nothing is sped up); that liveness catches photo / print attacks; any the authority certification or endorsement; and the
 app's confidence scores (97.3% / 89.3%) are per-attempt similarity scores, **not** the accuracy figure.
 
-Known, left as-is: the app UI in the footage shows "UIDAI · SITAA Cohort 1" and "for Aadhaar — no scanner needed" on its home
+Known, left as-is: the app UI in the footage shows "SITAA Cohort 1" and "for Aadhaar — no scanner needed" on its home
 card, and test data (name "shiv", UID 121212121212).

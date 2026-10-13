@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-feature android:name="android.hardware.camera" android:required="true"/>
     <application
-        android:label="YellowSense UIDAI"
+        android:label="YellowSense Contactless"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

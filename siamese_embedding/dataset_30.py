@@ -8,8 +8,8 @@ framing, lighting per photo.
 """
 import os
 
-IMAGE_DB = r"D:\UIDAI\image_db"
-TEST_DB = r"D:\UIDAI\test_db"
+IMAGE_DB = r"D:\Contactless\image_db"
+TEST_DB = r"D:\Contactless\test_db"
 
 NUM_PEOPLE = 30
 

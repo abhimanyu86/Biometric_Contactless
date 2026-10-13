@@ -10,7 +10,7 @@ was decided, what was built, and what is still open. Updated on request.
 
 ## 1. Where the project stands
 
-Contactless fingerprint authentication SDK for UIDAI SITAA (`SU-C1-2025-02`). The PoC has
+Contactless fingerprint authentication SDK for SITAA (`SU-C1-2025-02`). The PoC has
 a four-condition mandatory acceptance gate:
 
 | # | Condition | Status |
@@ -150,7 +150,7 @@ Measured results (synthetic data only):
   on-device. This is a much smaller migration than the PDD implied.
 - **FIR only**, not FMR. Uncompressed FIR is conformant, so no JPEG2000 dependency.
 - **ISO 19794-4:2005 32-byte general header** implemented. The 2011 revision differs;
-  confirm which edition UIDAI expects.
+  confirm which edition the authority expects.
 - **Multi-finger is required** (FP-04), reversing the PDD's "out of scope" note.
 - **"1:10" means the ten fingers of one person**, not a ranked top-10 list.
 

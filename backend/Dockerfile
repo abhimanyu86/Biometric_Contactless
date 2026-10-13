@@ -34,7 +34,7 @@ COPY best_f1.pth .
 # SQLite files live on a mounted volume, not baked into the image — persists
 # across container restarts/redeploys. Mount a host directory here at run time:
 #   docker run -v /srv/sitaa-cloud-data:/data ...
-ENV DATABASE=/data/uidai.db
+ENV DATABASE=/data/contactless.db
 ENV SLAP_DB=/data/slap.db
 VOLUME ["/data"]
 

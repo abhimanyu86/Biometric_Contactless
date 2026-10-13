@@ -1,8 +1,8 @@
-# YellowSense Technologies — UIDAI SITAA Cohort 1
+# YellowSense Technologies — SITAA Cohort 1
 ## Project Strategy, Status & Team Allocation
 
 **Project ID:** SU-C1-2025-02  
-**App Name:** `yellowsense_uidai`  
+**App Name:** `yellowsense_contactless`  
 **Version:** 1.0.0+1  
 **Stack:** Flutter 3.41.4 (Android/iOS) + Flask (Python 3.11) + PyTorch + TensorFlow  
 **Team:** Atharv · Ishita · Ashish · Vignesh · Nandhini
@@ -75,7 +75,7 @@
 
 ### 🔴 High Priority
 
-| # | Feature | UIDAI Criteria |
+| # | Feature | Criteria |
 |---|---------|----------------|
 | M1 | Auto-capture — camera triggers when quality passes | e, h |
 | M2 | Real-time guidance overlay on camera viewfinder | b, e |
@@ -83,7 +83,7 @@
 
 ### 🟡 Medium Priority
 
-| # | Feature | UIDAI Criteria |
+| # | Feature | Criteria |
 |---|---------|----------------|
 | M4 | Readiness Score 0–100 (composite quality metric) | b |
 | M5 | ISO/IEC 19794-4 template export | d, g |
@@ -175,7 +175,7 @@
 
 **`benchmark.py` spec:**
 ```python
-# Load all users from uidai.db
+# Load all users from contactless.db
 # For each user with 2+ enrollments → genuine pair
 # Cross-user pairs → impostor pairs
 # Run match_templates() on all pairs
@@ -312,7 +312,7 @@ develop       ← integration branch, everyone merges here first
 | Resource | Link |
 |----------|------|
 | IIT Bombay Repo | `github.com/prathameshsanaye28/UIDAI-IITB-CONTACTLESS` (private — ish1416 has access) |
-| UIDAI Problem Statement | `SITAA/uidai.pdf` |
+| Problem Statement | `SITAA/uidai.pdf` |
 | ISO 19794-4 | https://www.iso.org/standard/50864.html |
 | Flutter Docs | https://docs.flutter.dev |
 | Flask Docs | https://flask.palletsprojects.com |

@@ -24,7 +24,7 @@
    "fps": 30.0,
    "width": 720,
    "height": 1560,
-   "description": "Slap-mode home screen: Single/Slap toggle (Slap active, gold), blue 'Multi-Finger Slap Auth' hero card ('UIDAI - SITAA Cohort 1', chips YOLO / U2Net / ZeroDCE / MinutiaeNet / Aggregate) and the 4x Fingers / 1:N Auth / 1:1 Verify stat tiles, ACTIONS header with Enroll/Authenticate tiles peeking at the bottom. Only 0.87 s of settled footage exists before the app scrolls, so the remaining 2.13 s is a hold on the last tap-ring-free frame.",
+   "description": "Slap-mode home screen: Single/Slap toggle (Slap active, gold), blue 'Multi-Finger Slap Auth' hero card ('SITAA Cohort 1', chips YOLO / U2Net / ZeroDCE / MinutiaeNet / Aggregate) and the 4x Fingers / 1:N Auth / 1:1 Verify stat tiles, ACTIONS header with Enroll/Authenticate tiles peeking at the bottom. Only 0.87 s of settled footage exists before the app scrolls, so the remaining 2.13 s is a hold on the last tap-ring-free frame.",
    "keyMoments": [
     {
      "tSec": 0.0,

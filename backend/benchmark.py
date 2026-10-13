@@ -23,7 +23,7 @@ except ImportError:
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE = os.path.join(BASE_DIR, "uidai.db")
+DATABASE = os.path.join(BASE_DIR, "contactless.db")
 CSV_PATH = os.path.join(BASE_DIR, "benchmark_results.csv")
 PLOT_PATH = os.path.join(BASE_DIR, "eer_plot.png")
 
@@ -340,14 +340,14 @@ def load_users():
     if not os.path.exists(DATABASE):
         raise FileNotFoundError(f"Database not found: {DATABASE}")
     if os.path.getsize(DATABASE) == 0:
-        raise RuntimeError("uidai.db exists but is empty")
+        raise RuntimeError("contactless.db exists but is empty")
 
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     try:
         tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if "users" not in tables:
-            raise RuntimeError("`users` table not found in uidai.db")
+            raise RuntimeError("`users` table not found in contactless.db")
 
         rows = conn.execute(
             """
@@ -535,7 +535,7 @@ def write_error_csv(message):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Run a FAR/FRR fingerprint benchmark over the users table in uidai.db."
+        description="Run a FAR/FRR fingerprint benchmark over the users table in contactless.db."
     )
     parser.add_argument(
         "--max-genuine-pairs",
@@ -575,7 +575,7 @@ def main():
         config = parse_args()
         users = load_users()
         if not users:
-            message = "No valid templates found in uidai.db"
+            message = "No valid templates found in contactless.db"
             write_error_csv(message)
             write_plot([], None, message)
             logger.info(message)

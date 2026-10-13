@@ -31,7 +31,7 @@ General record header, 32 bytes:
     31      1     image compression algorithm (0 = uncompressed)
 
 Note on editions: this implements the 32-byte general header of ISO/IEC 19794-4:2005.
-The 2011 revision reorganises the header and adds fields. Confirm which edition UIDAI
+The 2011 revision reorganises the header and adds fields. Confirm which edition the authority
 expects before submission — the format identifier and version bytes are what a verifier
 will check first, and they differ between editions.
 
@@ -206,7 +206,7 @@ def encode_fir(image, finger_position=0, image_quality=0, impression_type=0,
     finger_position uses the standard codes — see FINGER_POSITIONS.
 
     impression_type defaults to 0 (live-scan plain). The 2011 revision of the standard
-    adds contactless-specific impression codes; confirm which value UIDAI expects for
+    adds contactless-specific impression codes; confirm which value the authority expects for
     contactless capture before submission rather than assuming this default is right.
     """
     if image is None or image.size == 0:

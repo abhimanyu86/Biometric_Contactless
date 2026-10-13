@@ -1,8 +1,8 @@
-# YellowSense Technologies — UIDAI SITAA Cohort 1
+# YellowSense Technologies — SITAA Cohort 1
 ## Raj Onboarding Guide
 
 **Project ID:** SU-C1-2025-02  
-**App Name:** `yellowsense_uidai`  
+**App Name:** `yellowsense_contactless`  
 **Version:** 1.0.0+1  
 **Stack:** Flutter 3.41.4 (Android/iOS) + Flask (Python 3.11) + PyTorch + TensorFlow  
 **Repo:** https://github.com/ish1416/UIDAI  
@@ -128,7 +128,7 @@ cd UIDAI
 The folder structure:
 ```
 UIDAI/
-├── uidai_app/                  ← Flutter app
+├── contactless_app/                  ← Flutter app
 │   ├── lib/
 │   │   ├── screens/            ← all app screens
 │   │   ├── widgets/            ← camera widget
@@ -153,7 +153,7 @@ The AI model files are **not in Git** — they are too large. Download all of th
 
 **https://drive.google.com/drive/folders/1wBuuCHnEOVyjgeMwVvI2O_e54fX5emjk?usp=sharing**
 
-Download every file and place them all inside `uidai_app/backend/`:
+Download every file and place them all inside `contactless_app/backend/`:
 
 | File | What it does |
 |------|-------------|
@@ -166,7 +166,7 @@ Download every file and place them all inside `uidai_app/backend/`:
 | `best_float32.tflite` | Finger coverage mask |
 | `coverage_mask.tflite` | Coverage mask (backup) |
 
-After downloading, your `uidai_app/backend/` folder must look like:
+After downloading, your `contactless_app/backend/` folder must look like:
 ```
 backend/
 ├── app.py
@@ -193,7 +193,7 @@ backend/
 
 #### Mac:
 ```bash
-cd UIDAI/uidai_app/backend
+cd UIDAI/contactless_app/backend
 
 # Create virtual environment
 python3.11 -m venv venv
@@ -210,7 +210,7 @@ pip install tensorflow-macos==2.16.2 tensorflow-metal==1.2.0
 
 #### Windows:
 ```powershell
-cd UIDAI\uidai_app\backend
+cd UIDAI\contactless_app\backend
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
@@ -230,14 +230,14 @@ You must see `ALL OK`. If any module fails, run `pip install <module-name>` agai
 
 **Mac/Linux:**
 ```bash
-cd uidai_app/backend
+cd contactless_app/backend
 source venv/bin/activate
 bash start.sh
 ```
 
 **Windows:**
 ```powershell
-cd uidai_app\backend
+cd contactless_app\backend
 venv\Scripts\activate
 python app.py
 ```
@@ -273,7 +273,7 @@ Expected response:
 ### Step 6 — Flutter Setup
 
 ```bash
-cd UIDAI/uidai_app
+cd UIDAI/contactless_app
 
 # Check Flutter is installed
 flutter doctor
@@ -298,7 +298,7 @@ flutter run
 ### Step 7 — Create Your Branch
 
 ```bash
-cd UIDAI/uidai_app
+cd UIDAI/contactless_app
 git checkout develop
 git pull origin develop
 git checkout -b feature/raj-testing
@@ -493,7 +493,7 @@ Must still return `status: ok`. Confirms nothing is broken.
 ### Task 2 — Benchmark Script (Vignesh)
 
 ```bash
-cd uidai_app/backend
+cd contactless_app/backend
 source venv/bin/activate
 python benchmark.py
 ```
@@ -516,7 +516,7 @@ Must have columns: `threshold, far, frr, false_accepts, false_rejects, total_gen
 ### Task 3 — Streamlit QC Tool
 
 ```bash
-cd uidai_app/backend/qctool
+cd contactless_app/backend/qctool
 pip install streamlit scikit-image scikit-learn requests
 streamlit run app.py
 # Opens at http://localhost:8501
@@ -542,7 +542,7 @@ These are empty placeholders. Raise this as a pending item for Ashish.
 Build and install the debug APK first:
 
 ```bash
-cd uidai_app
+cd contactless_app
 flutter pub get
 flutter analyze          # must show: No issues found
 flutter build apk --debug
@@ -786,7 +786,7 @@ with tab3:
 
 **Your action — message Ashish:**
 
-> "Ashish — export_iso_template() in backend/app.py uses a simplified 6-byte header. For UIDAI submission it should follow the full ISO 19794-4 format (28-byte header). Reference: https://www.iso.org/standard/50864.html — can you update this?"
+> "Ashish — export_iso_template() in backend/app.py uses a simplified 6-byte header. For submission it should follow the full ISO 19794-4 format (28-byte header). Reference: https://www.iso.org/standard/50864.html — can you update this?"
 
 **Do not attempt to fix this yourself** — it is a binary format spec task. Just track it.
 
@@ -944,19 +944,19 @@ Your testing is complete when:
 
 ```bash
 # Start backend
-cd uidai_app/backend && source venv/bin/activate && bash start.sh
+cd contactless_app/backend && source venv/bin/activate && bash start.sh
 
 # Start QC tool
-cd uidai_app/backend/qctool && streamlit run app.py
+cd contactless_app/backend/qctool && streamlit run app.py
 
 # Run benchmark
-cd uidai_app/backend && python benchmark.py
+cd contactless_app/backend && python benchmark.py
 
 # Flutter analyze
-cd uidai_app && flutter analyze
+cd contactless_app && flutter analyze
 
 # Build APK
-cd uidai_app && flutter build apk --debug
+cd contactless_app && flutter build apk --debug
 
 # Install APK on device
 adb install build/app/outputs/flutter-apk/app-debug.apk

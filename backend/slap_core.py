@@ -2,7 +2,7 @@
 slap_core.py — self-contained model defs + per-finger pipeline for the
 multi-finger (slap) contactless fingerprint app.
 
-Fully self-contained in THIS folder. It does NOT import or depend on uidai_app.
+Fully self-contained in THIS folder. It does NOT import or depend on contactless_app.
 The model architectures, preprocessing math, minutiae extraction and ISO export
 below are faithful copies of the proven single-finger backend — the ONLY change
 is `detect_all_finger_boxes()`, which loops over every YOLO detection instead of
@@ -35,7 +35,7 @@ MODELS_DIR = os.environ.get(
 )
 # The NEW multi-finger model trained for slap capture (classes: FingerTips,
 # FingerTips-2DFX, Fingerprint, finger). Use this — NOT the single-finger
-# best-new.pt from uidai_app. Override with SLAP_YOLO_MODEL.
+# best-new.pt from contactless_app. Override with SLAP_YOLO_MODEL.
 YOLO_MODEL_PATH     = os.environ.get(
     "SLAP_YOLO_MODEL", os.path.join(MODELS_DIR, "best_float32.tflite")
 )

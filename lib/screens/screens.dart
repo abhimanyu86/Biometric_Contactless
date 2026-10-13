@@ -876,7 +876,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Divider(color: YS.stroke),
               const SizedBox(height: 12),
               _infoRow('Company',  'YellowSense Technologies'),
-              _infoRow('Project',  'UIDAI SITAA Cohort 1'),
+              _infoRow('Project',  'SITAA Cohort 1'),
               _infoRow('Pipeline', 'YOLO → Liveness → U²Net → ZeroDCE → MinutiaeNet'),
               _infoRow('Matching', 'MCC Graph + Relaxation Labeling + Slap Aggregate'),
               _infoRow('Version',  '2.0.0 (Unified)'),

@@ -274,7 +274,7 @@ class _HeroBanner extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Text('UIDAI · SITAA Cohort 1',
+          child: Text('SITAA Cohort 1',
               style: YS.label(11, color: Colors.white, w: FontWeight.w600)),
         ),
         const SizedBox(height: 14),

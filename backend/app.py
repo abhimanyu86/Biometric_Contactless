@@ -80,7 +80,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 LIVENESS_THRESHOLD = 0.5
 LIVENESS_IMG_SIZE  = 224
 
-DATABASE = os.path.join(BASE_DIR, "uidai.db")
+DATABASE = os.path.join(BASE_DIR, "contactless.db")
 
 global_models = {}
 LAST_DEBUG_DATA = None
@@ -2263,7 +2263,7 @@ if __name__ == "__main__":
     init_db()
     load_models()
     print("\n" + "="*60)
-    print("  YellowSense Technologies — UIDAI Fingerprint Server")
+    print("  YellowSense Technologies — Contactless Fingerprint Server")
     print("="*60)
     print("  POST /enroll          — Enroll user")
     print("  POST /authenticate    — 1:N authentication")

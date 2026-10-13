@@ -1,5 +1,5 @@
-name: yellowsense_uidai
-description: "YellowSense Technologies — UIDAI Contactless Fingerprint SDK Demo"
+name: yellowsense_contactless
+description: "YellowSense Technologies — Contactless Fingerprint SDK Demo"
 publish_to: 'none'
 version: 1.0.0+1
 

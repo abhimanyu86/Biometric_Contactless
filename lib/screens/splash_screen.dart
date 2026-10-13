@@ -80,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen>
                     Text('YellowSense', style: YS.display(32,
                         color: YS.amberDeep, w: FontWeight.w800)),
                     const SizedBox(height: 4),
-                    Text('UIDAI Fingerprint SDK',
+                    Text('Contactless Fingerprint SDK',
                         style: YS.label(15, color: YS.inkMid, w: FontWeight.w500)),
                     const SizedBox(height: 6),
                     Container(

@@ -124,7 +124,7 @@ def export_fir(base_url: str, image_bytes: bytes, finger_position: int = 0,
 
 def enroll(base_url: str, image_bytes: bytes, name: str, uid: str, batch: str,
            finger_position: int = 0, filename: str = "capture.jpg") -> Call:
-    """Optional — writes into the *server's* uidai.db so the Flutter app sees the same gallery."""
+    """Optional — writes into the *server's* contactless.db so the Flutter app sees the same gallery."""
     data = {"name": name, "uid": uid, "batch": batch,
             "finger_position": str(int(finger_position))}
     return _request("POST", base_url, "/enroll", files=_files(image_bytes, filename), data=data)

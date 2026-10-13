@@ -1,7 +1,7 @@
 """
 slap_app.py — Multi-finger (slap) contactless fingerprint REST service.
 
-Self-contained in THIS folder; does not touch uidai_app. Uses slap_core (which
+Self-contained in THIS folder; does not touch contactless_app. Uses slap_core (which
 holds faithful copies of the proven single-finger pipeline) and loops it over
 EVERY detected finger.
 

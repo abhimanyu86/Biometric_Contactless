@@ -27,10 +27,10 @@ sys.path.insert(0, BASE_DIR)
 from app import detect_and_crop_image  # noqa: E402
 from embed_resnet50 import build_embedder, INPUT_SIZE, _IMAGENET_MEAN, _IMAGENET_STD  # noqa: E402
 
-IMAGE_DB = r"D:\UIDAI\image_db"
-TEST_DB = r"D:\UIDAI\test_db"
-IMAGE_DB_CROPPED = r"D:\UIDAI\image_db_cropped"
-TEST_DB_CROPPED = r"D:\UIDAI\test_db_cropped"
+IMAGE_DB = r"D:\Contactless\image_db"
+TEST_DB = r"D:\Contactless\test_db"
+IMAGE_DB_CROPPED = r"D:\Contactless\image_db_cropped"
+TEST_DB_CROPPED = r"D:\Contactless\test_db_cropped"
 OLD_CACHE = os.path.join(BASE_DIR, "embeddings_cache_dynamic_resnet50.json")
 OLD_EER_THRESHOLD = 0.5893110036849976
 OUT_CSV = os.path.join(BASE_DIR, "30people_cropped_vs_uncropped.csv")

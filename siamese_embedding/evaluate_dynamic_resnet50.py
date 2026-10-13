@@ -24,8 +24,8 @@ from evaluate import evaluate_embeddings
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_GALLERY_DIR = r"D:\UIDAI\image_db"
-DEFAULT_PROBE_DIR = r"D:\UIDAI\test_db"
+DEFAULT_GALLERY_DIR = r"D:\Contactless\image_db"
+DEFAULT_PROBE_DIR = r"D:\Contactless\test_db"
 DEFAULT_CACHE_PATH = os.path.join(BASE_DIR, "embeddings_cache_dynamic_resnet50.json")
 DEFAULT_CSV_PATH = os.path.join(BASE_DIR, "benchmark_results_dynamic_resnet50.csv")
 DEFAULT_PLOT_PATH = os.path.join(BASE_DIR, "eer_plot_dynamic_resnet50.png")

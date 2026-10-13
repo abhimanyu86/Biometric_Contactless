@@ -21,7 +21,7 @@ import numpy as np
 from embed_resnet50 import build_embedder, preprocess_image
 import torch
 
-DATASET_DIR = r"D:\UIDAI\backend\labtool\dataset"
+DATASET_DIR = r"D:\Contactless\backend\labtool\dataset"
 
 # From lab_gallery.db's subjects table.
 NAMES = {
