@@ -59,6 +59,7 @@ import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+import uid_enrollment
 from minutiae import detect_minutiae, get_minutiae_model
 from matching import match_templates
 from slap_matching import score_against_user, label_by_order, MATCH_THRESH
@@ -1291,6 +1292,60 @@ def verify_slap_hybrid():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# UID-KEYED MULTI-CAPTURE — /v3/uid/enroll, /v3/uid/verify
+# 12-char alphanumeric UID, 5 angled captures per UID, 1:1 verification against
+# those 5 only. Logic lives in uid_enrollment.py (testable without model weights).
+# ══════════════════════════════════════════════════════════════════════════════
+
+UID_DB = os.environ.get("UID_DB", os.path.join(BASE_DIR, "uid.db"))
+
+
+@app.route("/v3/uid/enroll", methods=["POST"])
+def enroll_uid_v3():
+    """Form: uid, name (optional), image x5 (repeat the `image` field)."""
+    try:
+        uid = uid_enrollment.validate_uid(request.form.get("uid"))
+        imgs = _read_images_list("image")
+        if len(imgs) != uid_enrollment.UID_CAPTURE_COUNT:
+            raise uid_enrollment.UidError(
+                f"exactly {uid_enrollment.UID_CAPTURE_COUNT} decodable images required, "
+                f"got {len(imgs)}")
+
+        captures = []
+        for img in imgs:
+            ok, buf = cv2.imencode(".png", img)  # lossless copy of the processed image
+            captures.append({"minutiae": detect_minutiae(img),
+                             "png": buf.tobytes() if ok else None})
+
+        counts = uid_enrollment.enroll_uid(
+            UID_DB, uid, request.form.get("name", ""), captures)
+        return jsonify({"success": True, "uid": uid, "minutiae_counts": counts})
+    except uid_enrollment.UidError as e:
+        return jsonify({"success": False, "error": str(e)}), e.status
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/v3/uid/verify", methods=["POST"])
+def verify_uid_v3():
+    """Form: uid, image (one probe). Matches only against that UID's stored captures."""
+    try:
+        uid = uid_enrollment.validate_uid(request.form.get("uid"))
+        imgs = _read_images_list("image")
+        if len(imgs) != 1:
+            raise uid_enrollment.UidError("exactly 1 decodable image required")
+
+        result = uid_enrollment.verify_probe(UID_DB, uid, detect_minutiae(imgs[0]))
+        return jsonify({"success": result["matched"], **result})
+    except uid_enrollment.UidError as e:
+        return jsonify({"success": False, "error": str(e)}), e.status
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1301,6 +1356,7 @@ def verify_slap_hybrid():
 init_db()
 init_embedding_db()
 init_slap_db()
+uid_enrollment.init_uid_db(UID_DB)
 
 if __name__ == "__main__":
     print("\n" + "=" * 60)
@@ -1321,6 +1377,8 @@ if __name__ == "__main__":
     print("  POST /v2/enroll_slap_hybrid           — slap enroll (minutiae + embedding fused)")
     print("  POST /v2/authenticate_slap_hybrid     — slap 1:N (minutiae + embedding fused)")
     print("  POST /v2/verify_slap_hybrid           — slap 1:1 (minutiae + embedding fused)")
+    print("  POST /v3/uid/enroll                   — UID + 5 angled captures (minutiae)")
+    print("  POST /v3/uid/verify                   — UID + 1 probe, 1:1 against that UID")
     print("  GET  /health")
     print("=" * 60 + "\n")
     port = int(os.environ.get("PORT", 8080))
